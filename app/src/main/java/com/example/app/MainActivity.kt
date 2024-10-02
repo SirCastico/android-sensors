@@ -34,10 +34,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         mLinAccel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
 
-        if (mLinAccel==null){
-            mInfo = "no sensor"
+        mInfo = if (mLinAccel==null){
+            "no sensor"
         } else {
-            mInfo = "fine"
+            "fine"
         }
 
         enableEdgeToEdge()
@@ -69,6 +69,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (event == null) return
         if (event.sensor.type == Sensor.TYPE_LINEAR_ACCELERATION){
             mInfo = event.values.contentToString()
+            setContent {
+                AppContent(info = mInfo)
+            }
         }
     }
 }
@@ -87,10 +90,11 @@ fun AppContent(info: String){
 
 @Composable
 fun TextContent(content: String, modifier: Modifier = Modifier) {
-    Surface(color = Color.Cyan) {
+    Surface(color = Color.Black) {
         Text(
             text = content,
-            modifier = modifier.padding(24.dp)
+            modifier = modifier.padding(24.dp),
+            color = Color.White
         )
     }
 }
