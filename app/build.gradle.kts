@@ -50,7 +50,7 @@ android {
 }
 
 dependencies {
-
+    implementation("com.github.KalebKE:FSensor:3.0.7")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
