@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
     // Google Play Services for AR if necessary.
     private var mUserRequestedInstall = true
     private var mSession: Session? = null
-    private var mHasCameraPermission = false
     private lateinit var mAnchor: Anchor
     private var mCurrentInd = 0
 
@@ -64,18 +63,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        Log.d(TAG, "resuming")
 
         // Check camera permission.
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_DENIED) {
 
+            Log.d(TAG, "requesting camera permission")
             requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 0)
             return
         }
 
         // Ensure that Google Play Services for AR and ARCore device profile data are
         // installed and up to date.
-        if (mSession == null && mHasCameraPermission) {
+        if (mSession == null) {
             try {
                 when (ArCoreApk.getInstance().requestInstall(this, mUserRequestedInstall)) {
                     ArCoreApk.InstallStatus.INSTALLED -> {
@@ -90,6 +91,7 @@ class MainActivity : ComponentActivity() {
                         session.configure(config)
                         mAnchor = session.createAnchor(Pose.makeTranslation(0.0f,0.0f,0.0f))
                         mSession = session
+                        Log.d(TAG, "created session")
                     }
                     ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
                         // When this method returns `INSTALL_REQUESTED`:
@@ -101,6 +103,7 @@ class MainActivity : ComponentActivity() {
                         //    requestInstall() will either return `INSTALLED` or throw an
                         //    exception if the installation or update did not succeed.
                         mUserRequestedInstall = false
+                        Log.d(TAG, "install requested")
                         return
                     }
                 }
@@ -108,16 +111,18 @@ class MainActivity : ComponentActivity() {
                 Log.e(TAG, "declined arcore install")
                 return
             } catch (e: Exception) {
-                Log.e(TAG, "arcore install error")
+                Log.e(TAG, "arcore install error:" + e.message)
                 return
             }
         }
 
         if (mSession == null){
+            Log.d(TAG, "presenting with session null")
             setContent{
                 TextAppContent(info = mInfo)
             }
         } else {
+            Log.d(TAG, "presenting with session exists")
             mSession?.resume()
             setContent {
                 ButtonAppContent {
@@ -160,22 +165,22 @@ class MainActivity : ComponentActivity() {
         mSession?.pause()
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            0 -> {
-               if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                   mHasCameraPermission = true
-               }
-            } else -> {
+    //override fun onRequestPermissionsResult(
+    //    requestCode: Int,
+    //    permissions: Array<out String>,
+    //    grantResults: IntArray
+    //) {
+    //    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    //    when (requestCode) {
+    //        0 -> {
+    //           if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+    //               mHasCameraPermission = true
+    //           }
+    //        } else -> {
 
-            }
-        }
-    }
+    //        }
+    //    }
+    //}
 
 }
 
