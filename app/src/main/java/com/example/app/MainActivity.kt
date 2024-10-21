@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                             Log.e(TAG, "no arcore depth")
                         }
                         session.configure(config)
-                        mAnchor = session.createAnchor(Pose.makeTranslation(0.0f,0.0f,0.0f))
+                        //mAnchor = session.createAnchor(Pose.makeTranslation(0.0f,0.0f,0.0f))
                         mSession = session
                         Log.d(TAG, "created session")
                     }
@@ -126,11 +126,14 @@ class MainActivity : ComponentActivity() {
             mSession?.resume()
             setContent {
                 ButtonAppContent {
+                    Log.d(TAG, "button pressed")
                     mSession?.let { session ->
                         val frame = session.update()
                         frame.acquirePointCloud().use {cloud ->
+                            Log.d(TAG, "acquired point cloud")
                             val rem = cloud.points.remaining()
                             openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
+                                Log.d(TAG, "starting file write")
                                 val point = FloatArray(4)
                                 for (i in 0..<rem/4) {
                                     point[0] = cloud.points.get()
@@ -151,6 +154,7 @@ class MainActivity : ComponentActivity() {
 
                                 }
                             }
+                            Log.d(TAG, "wrote to file data_$mCurrentInd")
                             mCurrentInd=(mCurrentInd+1)%2
 
                         }
