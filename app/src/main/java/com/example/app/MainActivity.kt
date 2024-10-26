@@ -6,6 +6,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.opengl.GLES20
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -32,9 +33,14 @@ import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import java.io.File
+import android.opengl.GLSurfaceView
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.viewinterop.AndroidView
+import javax.microedition.khronos.egl.EGLConfig
+import javax.microedition.khronos.opengles.GL10
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private val TAG = "MainActivity"
     private lateinit var mInfo: String
 
@@ -44,9 +50,13 @@ class MainActivity : ComponentActivity() {
     private var mSession: Session? = null
     private lateinit var mAnchor: Anchor
     private var mCurrentInd = 0
+    //private lateinit var mSurface: GLSurfaceView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        //mSurface = GLSurfaceView(this)
+        //mSurface.setEGLContextClientVersion(2)
 
         mInfo = if (ArCoreApk.getInstance().checkAvailability(this).isSupported){
             "arcore supported"
@@ -91,6 +101,7 @@ class MainActivity : ComponentActivity() {
                         session.configure(config)
                         //mAnchor = session.createAnchor(Pose.makeTranslation(0.0f,0.0f,0.0f))
                         mSession = session
+                        //mSurface.setRenderer(this)
                         Log.d(TAG, "created session")
                     }
                     ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
@@ -124,41 +135,45 @@ class MainActivity : ComponentActivity() {
         } else {
             Log.d(TAG, "presenting with session exists")
             mSession?.resume()
+            //mSurface.onResume()
             setContent {
-                ButtonAppContent {
+                ButtonAppContent(this) {
                     Log.d(TAG, "button pressed")
-                    mSession?.let { session ->
-                        val frame = session.update()
-                        frame.acquirePointCloud().use {cloud ->
-                            Log.d(TAG, "acquired point cloud")
-                            val rem = cloud.points.remaining()
-                            openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                                Log.d(TAG, "starting file write")
-                                val point = FloatArray(4)
-                                for (i in 0..<rem/4) {
-                                    point[0] = cloud.points.get()
-                                    point[1] = cloud.points.get()
-                                    point[2] = cloud.points.get()
-                                    point[3] = cloud.points.get()
+                    //mSurface.queueEvent {
+                    //    Log.d(TAG, "executing gl queued event")
+                    //    mSession?.let { session ->
+                    //        val frame = session.update()
+                    //        frame.acquirePointCloud().use {cloud ->
+                    //            Log.d(TAG, "acquired point cloud")
+                    //            val rem = cloud.points.remaining()
+                    //            openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
+                    //                Log.d(TAG, "starting file write")
+                    //                val point = FloatArray(4)
+                    //                for (i in 0..<rem/4) {
+                    //                    point[0] = cloud.points.get()
+                    //                    point[1] = cloud.points.get()
+                    //                    point[2] = cloud.points.get()
+                    //                    point[3] = cloud.points.get()
 
-                                    //point = mAnchor.pose.transformPoint(point)
+                    //                    //point = mAnchor.pose.transformPoint(point)
 
-                                    file.write(point[0].toString().toByteArray())
-                                    file.write(" ".toByteArray())
-                                    file.write(point[1].toString().toByteArray())
-                                    file.write(" ".toByteArray())
-                                    file.write(point[2].toString().toByteArray())
-                                    file.write(" ".toByteArray())
-                                    file.write(point[3].toString().toByteArray())
-                                    file.write("\n".toByteArray())
+                    //                    file.write(point[0].toString().toByteArray())
+                    //                    file.write(" ".toByteArray())
+                    //                    file.write(point[1].toString().toByteArray())
+                    //                    file.write(" ".toByteArray())
+                    //                    file.write(point[2].toString().toByteArray())
+                    //                    file.write(" ".toByteArray())
+                    //                    file.write(point[3].toString().toByteArray())
+                    //                    file.write("\n".toByteArray())
 
-                                }
-                            }
-                            Log.d(TAG, "wrote to file data_$mCurrentInd")
-                            mCurrentInd=(mCurrentInd+1)%2
+                    //                }
+                    //            }
+                    //            Log.d(TAG, "wrote to file data_$mCurrentInd")
+                    //            mCurrentInd=(mCurrentInd+1)%2
 
-                        }
-                    }
+                    //        }
+                    //    }
+                    //}
                 }
             }
         }
@@ -166,38 +181,43 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        //mSurface.onPause()
         mSession?.pause()
     }
 
-    //override fun onRequestPermissionsResult(
-    //    requestCode: Int,
-    //    permissions: Array<out String>,
-    //    grantResults: IntArray
-    //) {
-    //    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    //    when (requestCode) {
-    //        0 -> {
-    //           if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-    //               mHasCameraPermission = true
-    //           }
-    //        } else -> {
+    override fun onSurfaceCreated(unused: GL10, config: EGLConfig) {
+        val texArr = IntArray(1)
+        GLES20.glGenTextures(1, texArr, 0)
+        mSession?.setCameraTextureName(texArr[0])
+    }
 
-    //        }
-    //    }
-    //}
+    override fun onDrawFrame(unused: GL10) {
+        GLES20.glClearColor(1.0f,0.0f,0.0f,1.0f)
+        Log.d(TAG, "on draw frame called")
+        val frame = mSession?.update()
+    }epipolar_self_consistency_metrics.cc:471] Failed to get first occurrence transform for feat
 
+    override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
+        GLES20.glViewport(0,0,width,height)
+    }
 }
 
 @Composable
-fun ButtonAppContent(callback: () -> Unit){
+fun ButtonAppContent(main: MainActivity, callback: () -> Unit){
     AppTheme {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Row(modifier = Modifier.fillMaxSize()) {
             Button(
                 onClick = callback,
-                contentPadding = innerPadding
             ) {
                 Text(text = "button")
             }
+
+            AndroidView(factory = { context ->
+                GLSurfaceView(context).apply {
+                    setEGLContextClientVersion(2)
+                    setRenderer(main)
+                }
+            })
         }
     }
 }
@@ -222,8 +242,8 @@ fun TextContent(content: String, modifier: Modifier = Modifier) {
     }
 }
 
-//@Preview(showBackground = true)
-//@Composable
-//fun AppPreview() {
-//    AppContent(info = "asd", {})
-//}
+@Preview(showBackground = true)
+@Composable
+fun AppPreview() {
+    ButtonAppContent(MainActivity()){}
+}
