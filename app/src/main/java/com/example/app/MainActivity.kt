@@ -34,22 +34,25 @@ import com.google.ar.core.Session
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import java.io.File
 import android.opengl.GLSurfaceView
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.viewinterop.AndroidView
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 
 class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
-    private val TAG = "MainActivity"
+    val TAG = "MainActivity"
     private lateinit var mInfo: String
 
     // requestInstall(Activity, true) will triggers installation of
     // Google Play Services for AR if necessary.
     private var mUserRequestedInstall = true
     private var mSession: Session? = null
-    private lateinit var mAnchor: Anchor
     private var mCurrentInd = 0
+    var mShouldWrite = AtomicBoolean(false)
     //private lateinit var mSurface: GLSurfaceView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -137,7 +140,9 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             mSession?.resume()
             //mSurface.onResume()
             setContent {
-                ButtonAppContent(this) {}
+                ButtonAppContent(this) {
+
+                }
             }
         }
     }
@@ -160,34 +165,37 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
         mSession?.let {session ->
             val frame = session.update()
-            frame.acquirePointCloud().use {cloud ->
-                Log.d(TAG, "acquired point cloud")
-                val rem = cloud.points.remaining()
-                openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                    Log.d(TAG, "starting file write")
-                    val point = FloatArray(4)
-                    for (i in 0..<rem/4) {
-                        point[0] = cloud.points.get()
-                        point[1] = cloud.points.get()
-                        point[2] = cloud.points.get()
-                        point[3] = cloud.points.get()
+            if (mShouldWrite.get()){
+                mShouldWrite.set(false)
+                frame.acquirePointCloud().use {cloud ->
+                    Log.d(TAG, "acquired point cloud")
+                    val rem = cloud.points.remaining()
+                    openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
+                        Log.d(TAG, "starting file write")
+                        val point = FloatArray(4)
+                        for (i in 0..<rem/4) {
+                            point[0] = cloud.points.get()
+                            point[1] = cloud.points.get()
+                            point[2] = cloud.points.get()
+                            point[3] = cloud.points.get()
 
-                        //point = mAnchor.pose.transformPoint(point)
-                        val out_str = point[0].toString().toByteArray() +
-                            " ".toByteArray() +
-                            point[1].toString().toByteArray() +
-                            " ".toByteArray() +
-                            point[2].toString().toByteArray() +
-                            " ".toByteArray() +
-                            point[3].toString().toByteArray() +
-                            "\n".toByteArray()
+                            //point = mAnchor.pose.transformPoint(point)
+                            val out_str = point[0].toString().toByteArray() +
+                                    " ".toByteArray() +
+                                    point[1].toString().toByteArray() +
+                                    " ".toByteArray() +
+                                    point[2].toString().toByteArray() +
+                                    " ".toByteArray() +
+                                    point[3].toString().toByteArray() +
+                                    "\n".toByteArray()
 
-                        file.write(out_str)
+                            file.write(out_str)
+                        }
                     }
-                }
-                Log.d(TAG, "wrote to file data_$mCurrentInd")
-                mCurrentInd=(mCurrentInd+1)%2
+                    Log.d(TAG, "wrote to file data_$mCurrentInd")
+                    mCurrentInd=(mCurrentInd+1)%2
 
+                }
             }
         }
     }
@@ -197,22 +205,33 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 }
 
-@Composable
-fun ButtonAppContent(main: MainActivity, callback: () -> Unit){
-    AppTheme {
-        Row(modifier = Modifier.fillMaxSize()) {
-            Button(
-                onClick = callback,
-            ) {
-                Text(text = "button")
-            }
 
-            AndroidView(factory = { context ->
-                GLSurfaceView(context).apply {
-                    setEGLContextClientVersion(2)
-                    setRenderer(main)
+@Composable
+fun ButtonAppContent(main: MainActivity, callback: () -> Unit) {
+    AppTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // GLSurfaceView takes the full screen
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    GLSurfaceView(context).apply {
+                        setEGLContextClientVersion(2)
+                        setRenderer(main)
+                        setOnClickListener {
+                            main.mShouldWrite.set(true)
+                            Log.d(main.TAG, "clicked")
+                        }
+                    }
                 }
-            })
+            )
+
+            // Button is centered on top of the GLSurfaceView
+            //Button(
+            //    onClick = callback,
+            //    modifier = Modifier.align(Alignment.Center)
+            //) {
+            //    Text(text = "button")
+            //}
         }
     }
 }
