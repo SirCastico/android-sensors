@@ -137,44 +137,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             mSession?.resume()
             //mSurface.onResume()
             setContent {
-                ButtonAppContent(this) {
-                    Log.d(TAG, "button pressed")
-                    //mSurface.queueEvent {
-                    //    Log.d(TAG, "executing gl queued event")
-                    //    mSession?.let { session ->
-                    //        val frame = session.update()
-                    //        frame.acquirePointCloud().use {cloud ->
-                    //            Log.d(TAG, "acquired point cloud")
-                    //            val rem = cloud.points.remaining()
-                    //            openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                    //                Log.d(TAG, "starting file write")
-                    //                val point = FloatArray(4)
-                    //                for (i in 0..<rem/4) {
-                    //                    point[0] = cloud.points.get()
-                    //                    point[1] = cloud.points.get()
-                    //                    point[2] = cloud.points.get()
-                    //                    point[3] = cloud.points.get()
-
-                    //                    //point = mAnchor.pose.transformPoint(point)
-
-                    //                    file.write(point[0].toString().toByteArray())
-                    //                    file.write(" ".toByteArray())
-                    //                    file.write(point[1].toString().toByteArray())
-                    //                    file.write(" ".toByteArray())
-                    //                    file.write(point[2].toString().toByteArray())
-                    //                    file.write(" ".toByteArray())
-                    //                    file.write(point[3].toString().toByteArray())
-                    //                    file.write("\n".toByteArray())
-
-                    //                }
-                    //            }
-                    //            Log.d(TAG, "wrote to file data_$mCurrentInd")
-                    //            mCurrentInd=(mCurrentInd+1)%2
-
-                    //        }
-                    //    }
-                    //}
-                }
+                ButtonAppContent(this) {}
             }
         }
     }
@@ -192,10 +155,42 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 
     override fun onDrawFrame(unused: GL10) {
-        GLES20.glClearColor(1.0f,0.0f,0.0f,1.0f)
+        //GLES20.glClearColor(1.0f,0.0f,0.0f,1.0f)
         Log.d(TAG, "on draw frame called")
-        val frame = mSession?.update()
-    }epipolar_self_consistency_metrics.cc:471] Failed to get first occurrence transform for feat
+
+        mSession?.let {session ->
+            val frame = session.update()
+            frame.acquirePointCloud().use {cloud ->
+                Log.d(TAG, "acquired point cloud")
+                val rem = cloud.points.remaining()
+                openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
+                    Log.d(TAG, "starting file write")
+                    val point = FloatArray(4)
+                    for (i in 0..<rem/4) {
+                        point[0] = cloud.points.get()
+                        point[1] = cloud.points.get()
+                        point[2] = cloud.points.get()
+                        point[3] = cloud.points.get()
+
+                        //point = mAnchor.pose.transformPoint(point)
+                        val out_str = point[0].toString().toByteArray() +
+                            " ".toByteArray() +
+                            point[1].toString().toByteArray() +
+                            " ".toByteArray() +
+                            point[2].toString().toByteArray() +
+                            " ".toByteArray() +
+                            point[3].toString().toByteArray() +
+                            "\n".toByteArray()
+
+                        file.write(out_str)
+                    }
+                }
+                Log.d(TAG, "wrote to file data_$mCurrentInd")
+                mCurrentInd=(mCurrentInd+1)%2
+
+            }
+        }
+    }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
         GLES20.glViewport(0,0,width,height)
