@@ -169,7 +169,9 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                 mShouldWrite.set(false)
                 frame.acquirePointCloud().use {cloud ->
                     Log.d(TAG, "acquired point cloud")
+                    cloud.points.rewind()
                     val rem = cloud.points.remaining()
+                    Log.d(TAG, "point cloud has $rem floats")
                     openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
                         Log.d(TAG, "starting file write")
                         val point = FloatArray(4)
@@ -180,16 +182,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                             point[3] = cloud.points.get()
 
                             //point = mAnchor.pose.transformPoint(point)
-                            val out_str = point[0].toString().toByteArray() +
-                                    " ".toByteArray() +
-                                    point[1].toString().toByteArray() +
-                                    " ".toByteArray() +
-                                    point[2].toString().toByteArray() +
-                                    " ".toByteArray() +
-                                    point[3].toString().toByteArray() +
-                                    "\n".toByteArray()
-
-                            file.write(out_str)
+                            val outStr = "${point[0]} ${point[1]} ${point[2]} ${point[3]}".toByteArray()
+                            file.write(outStr)
                         }
                     }
                     Log.d(TAG, "wrote to file data_$mCurrentInd")
