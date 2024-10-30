@@ -2,42 +2,37 @@ package com.example.app
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.opengl.GLES20
+import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.app.ui.theme.AppTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.google.ar.core.Anchor
+import com.example.app.ui.theme.AppTheme
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
-import com.google.ar.core.Pose
 import com.google.ar.core.Session
+import com.google.ar.core.TrackingState
+import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
-import java.io.File
-import android.opengl.GLSurfaceView
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.viewinterop.AndroidView
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import java.nio.ShortBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -45,27 +40,24 @@ import javax.microedition.khronos.opengles.GL10
 
 class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     val TAG = "MainActivity"
-    private lateinit var mInfo: String
 
-    // requestInstall(Activity, true) will triggers installation of
-    // Google Play Services for AR if necessary.
+    private lateinit var mInfo: String
     private var mUserRequestedInstall = true
     private var mSession: Session? = null
     private var mCurrentInd = 0
     var mShouldWrite = AtomicBoolean(false)
-    //private lateinit var mSurface: GLSurfaceView
+    private lateinit var mDisplayRotationHelper: DisplayRotationHelper
+    private var mDepthTimestamp: Long = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        //mSurface = GLSurfaceView(this)
-        //mSurface.setEGLContextClientVersion(2)
 
         mInfo = if (ArCoreApk.getInstance().checkAvailability(this).isSupported){
             "arcore supported"
         } else {
             "arcore not supported"
         }
+        mDisplayRotationHelper = DisplayRotationHelper(this)
 
         enableEdgeToEdge()
         setContent {
@@ -77,6 +69,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "resuming")
+        mDisplayRotationHelper.onResume()
 
         // Check camera permission.
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
@@ -149,11 +142,12 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
     override fun onStop() {
         super.onStop()
-        //mSurface.onPause()
         mSession?.pause()
+        mDisplayRotationHelper.onPause()
     }
 
     override fun onSurfaceCreated(unused: GL10, config: EGLConfig) {
+        GLES20.glClearColor(0.1f,0.1f,0.1f,1.0f)
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
@@ -164,43 +158,33 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         Log.d(TAG, "on draw frame called")
 
         mSession?.let {session ->
+            mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
             if (mShouldWrite.get()){
                 mShouldWrite.set(false)
-                frame.acquirePointCloud().use {cloud ->
-                    Log.d(TAG, "acquired point cloud")
-                    val rem = cloud.points.remaining()
-                    openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                        Log.d(TAG, "starting file write")
-                        val point = FloatArray(4)
-                        for (i in 0..<rem/4) {
-                            point[0] = cloud.points.get()
-                            point[1] = cloud.points.get()
-                            point[2] = cloud.points.get()
-                            point[3] = cloud.points.get()
-
-                            //point = mAnchor.pose.transformPoint(point)
-                            val out_str = point[0].toString().toByteArray() +
-                                    " ".toByteArray() +
-                                    point[1].toString().toByteArray() +
-                                    " ".toByteArray() +
-                                    point[2].toString().toByteArray() +
-                                    " ".toByteArray() +
-                                    point[3].toString().toByteArray() +
-                                    "\n".toByteArray()
-
-                            file.write(out_str)
-                        }
+                val camera = frame.getCamera()
+                if (camera.getTrackingState() != TrackingState.TRACKING) {
+                    return
+                }
+                var containsNewDepthData: Boolean
+                try {
+                    frame.acquireRawDepthImage16Bits().use { depthImage ->
+                        containsNewDepthData = mDepthTimestamp == depthImage.timestamp
+                        mDepthTimestamp = depthImage.timestamp
                     }
-                    Log.d(TAG, "wrote to file data_$mCurrentInd")
-                    mCurrentInd=(mCurrentInd+1)%2
-
+                } catch (e: NotYetAvailableException) {
+                    // This is normal at the beginning of session, where depth hasn't been estimated yet.
+                    containsNewDepthData = false
+                }
+                if (containsNewDepthData){
+                    val depth: DepthData? = DepthData.create(session, frame)
                 }
             }
         }
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
+        mDisplayRotationHelper.onSurfaceChanged(width, height)
         GLES20.glViewport(0,0,width,height)
     }
 }
@@ -216,7 +200,10 @@ fun ButtonAppContent(main: MainActivity, callback: () -> Unit) {
                 factory = { context ->
                     GLSurfaceView(context).apply {
                         setEGLContextClientVersion(2)
+                        setPreserveEGLContextOnPause(true)
                         setRenderer(main)
+                        setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY)
+                        setWillNotDraw(false)
                         setOnClickListener {
                             main.mShouldWrite.set(true)
                             Log.d(main.TAG, "clicked")
@@ -224,17 +211,10 @@ fun ButtonAppContent(main: MainActivity, callback: () -> Unit) {
                     }
                 }
             )
-
-            // Button is centered on top of the GLSurfaceView
-            //Button(
-            //    onClick = callback,
-            //    modifier = Modifier.align(Alignment.Center)
-            //) {
-            //    Text(text = "button")
-            //}
         }
     }
 }
+
 
 @Composable
 fun TextAppContent(info: String){
