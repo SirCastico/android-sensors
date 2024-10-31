@@ -177,7 +177,27 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     containsNewDepthData = false
                 }
                 if (containsNewDepthData){
-                    val depth: DepthData? = DepthData.create(session, frame)
+                    val depth0: DepthData? = DepthData.create(session, frame)
+                    depth0?.let {depth ->
+                        openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
+                            Log.d(TAG, "starting file write, ${depth.points.remaining()} floats")
+                            val point = FloatArray(4)
+                            while (depth.points.hasRemaining()) {
+                                point[0] = depth.points.get()
+                                point[1] = depth.points.get()
+                                point[2] = depth.points.get()
+                                point[3] = depth.points.get()
+
+                                //point = mAnchor.pose.transformPoint(point)
+                                val outStr = "${point[0]} ${point[1]} ${point[2]} ${point[3]}".toByteArray()
+                                file.write(outStr)
+                            }
+                        }
+                        Log.d(TAG, "wrote to file data_$mCurrentInd")
+                        mCurrentInd+=1
+                    }
+                } else {
+                    Log.d(TAG, "No new depth data")
                 }
             }
         }
