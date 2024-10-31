@@ -189,12 +189,12 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                                 point[3] = depth.points.get()
 
                                 //point = mAnchor.pose.transformPoint(point)
-                                val outStr = "${point[0]} ${point[1]} ${point[2]} ${point[3]}".toByteArray()
+                                val outStr = "${point[0]} ${point[1]} ${point[2]} ${point[3]}\n".toByteArray()
                                 file.write(outStr)
                             }
                         }
                         Log.d(TAG, "wrote to file data_$mCurrentInd")
-                        mCurrentInd+=1
+                        mCurrentInd=(mCurrentInd+1)%10
                     }
                 } else {
                     Log.d(TAG, "No new depth data")
