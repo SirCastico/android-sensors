@@ -63,7 +63,8 @@ public final class PointCloudHelper {
         // Allocate the destination point buffer. If the number of depth pixels is larger than
         // `pointLimit` we do uniform image subsampling. Alternatively we could reduce the number of
         // points based on depth confidence at this stage.
-        int step = calculateImageSubsamplingStep(depthWidth, depthHeight, pointLimit);
+        //int step = calculateImageSubsamplingStep(depthWidth, depthHeight, pointLimit);
+        int step = 1;
         FloatBuffer points =
                 FloatBuffer.allocate(
                         depthWidth / step * depthHeight / step * POSITION_FLOATS_PER_POINT);

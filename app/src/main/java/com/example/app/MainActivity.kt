@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.app.ui.theme.AppTheme
+import com.google.ar.core.Anchor
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
 import com.google.ar.core.Session
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
+    private var mAnchor: Anchor? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -177,6 +179,17 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     containsNewDepthData = false
                 }
                 if (containsNewDepthData){
+                    mAnchor?.also {
+                        Log.d(
+                            TAG,
+                            "anchor pose :: transl: " +
+                                    "${it.pose.translation.contentToString()}, " +
+                                    "rot: ${it.pose.rotationQuaternion.contentToString()}"
+                        )
+                    } ?: {
+                        mAnchor = session.createAnchor(frame.getCamera().getPose());
+                        Log.d(TAG, "created starting anchor")
+                    }
                     val depth0: DepthData? = DepthData.create(session, frame)
                     depth0?.let {depth ->
                         openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
