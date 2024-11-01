@@ -162,6 +162,16 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         mSession?.let {session ->
             mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
+
+            mAnchor?.let {
+                Log.d(
+                    TAG,
+                    "anchor pose :: transl: " +
+                            "${it.pose.translation.contentToString()}, " +
+                            "rot: ${it.pose.rotationQuaternion.contentToString()}"
+                )
+            }
+
             if (mShouldWrite.get()){
                 mShouldWrite.set(false)
                 val camera = frame.getCamera()
@@ -169,27 +179,21 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     return
                 }
                 var containsNewDepthData: Boolean
+                var newDepthTimestamp: Long = -1
                 try {
                     frame.acquireRawDepthImage16Bits().use { depthImage ->
                         containsNewDepthData = mDepthTimestamp == depthImage.timestamp
-                        mDepthTimestamp = depthImage.timestamp
+                        newDepthTimestamp = depthImage.timestamp
                     }
                 } catch (e: NotYetAvailableException) {
                     // This is normal at the beginning of session, where depth hasn't been estimated yet.
                     containsNewDepthData = false
                 }
                 if (containsNewDepthData){
+                    mDepthTimestamp = newDepthTimestamp
                     if (mAnchor == null) {
                         mAnchor = session.createAnchor(frame.getCamera().getPose());
                         Log.d(TAG, "created starting anchor")
-                    }
-                    mAnchor?.let {
-                        Log.d(
-                            TAG,
-                            "anchor pose :: transl: " +
-                                    "${it.pose.translation.contentToString()}, " +
-                                    "rot: ${it.pose.rotationQuaternion.contentToString()}"
-                        )
                     }
 
                     val depth0: DepthData? = DepthData.create(session, frame)

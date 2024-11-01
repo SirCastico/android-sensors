@@ -73,7 +73,8 @@ public final class DepthData {
                     PointCloudHelper.convertImageToColorBuffer(
                             cameraImage, depthImage, imageRegionCoordinates, maxNumberOfPointsToRender);
 
-            Anchor cameraPoseAnchor = session.createAnchor(frame.getCamera().getPose());
+            //Anchor cameraPoseAnchor = session.createAnchor(frame.getCamera().getPose());
+            Anchor cameraPoseAnchor = null;
             return new DepthData(points, colors, depthImage.getTimestamp(), cameraPoseAnchor);
         } catch (NotYetAvailableException e) {
             // This normally means that depth data is not available yet. This is normal so we will not
