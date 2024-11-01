@@ -163,15 +163,6 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
 
-            mAnchor?.let {
-                Log.d(
-                    TAG,
-                    "anchor pose :: transl: " +
-                            "${it.pose.translation.contentToString()}, " +
-                            "rot: ${it.pose.rotationQuaternion.contentToString()}"
-                )
-            }
-
             if (mShouldWrite.get()){
                 mShouldWrite.set(false)
                 val camera = frame.getCamera()
@@ -194,6 +185,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     if (mAnchor == null) {
                         mAnchor = session.createAnchor(frame.getCamera().getPose());
                         Log.d(TAG, "created starting anchor")
+                    }
+                    mAnchor?.let {
+                        Log.d(
+                            TAG,
+                            "anchor pose :: transl: " +
+                                    "${it.pose.translation.contentToString()}, " +
+                                    "rot: ${it.pose.rotationQuaternion.contentToString()}"
+                        )
                     }
 
                     val depth0: DepthData? = DepthData.create(session, frame)
