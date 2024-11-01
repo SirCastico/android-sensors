@@ -179,17 +179,19 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     containsNewDepthData = false
                 }
                 if (containsNewDepthData){
-                    mAnchor?.also {
+                    if (mAnchor == null) {
+                        mAnchor = session.createAnchor(frame.getCamera().getPose());
+                        Log.d(TAG, "created starting anchor")
+                    }
+                    mAnchor?.let {
                         Log.d(
                             TAG,
                             "anchor pose :: transl: " +
                                     "${it.pose.translation.contentToString()}, " +
                                     "rot: ${it.pose.rotationQuaternion.contentToString()}"
                         )
-                    } ?: {
-                        mAnchor = session.createAnchor(frame.getCamera().getPose());
-                        Log.d(TAG, "created starting anchor")
                     }
+
                     val depth0: DepthData? = DepthData.create(session, frame)
                     depth0?.let {depth ->
                         openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
