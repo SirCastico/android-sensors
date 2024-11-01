@@ -182,7 +182,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                 var newDepthTimestamp: Long = -1
                 try {
                     frame.acquireRawDepthImage16Bits().use { depthImage ->
-                        containsNewDepthData = mDepthTimestamp == depthImage.timestamp
+                        containsNewDepthData = mDepthTimestamp != depthImage.timestamp
                         newDepthTimestamp = depthImage.timestamp
                     }
                 } catch (e: NotYetAvailableException) {
