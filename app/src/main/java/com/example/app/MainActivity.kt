@@ -156,43 +156,34 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 
     override fun onDrawFrame(unused: GL10) {
-        //GLES20.glClearColor(1.0f,0.0f,0.0f,1.0f)
-        Log.d(TAG, "on draw frame called")
-
         mSession?.let {session ->
             mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
+            val camera = frame.getCamera()
 
-            mAnchor?.let {
-                Log.d(
-                    TAG,
-                    "anchor pose :: transl: " +
-                            "${it.pose.translation.contentToString()}, " +
-                            "rot: ${it.pose.rotationQuaternion.contentToString()}"
-                )
+            if (camera.getTrackingState() != TrackingState.TRACKING) {
+                Log.d(TAG, "camera not tracking")
+                return
             }
 
+            Log.d(TAG, "camera :: transl: ${camera.pose.translation.contentToString()}" +
+                    ", rot ${camera.pose.rotationQuaternion.contentToString()}")
+
             if (mShouldWrite.get()){
-                mShouldWrite.set(false)
-                val camera = frame.getCamera()
-                if (camera.getTrackingState() != TrackingState.TRACKING) {
-                    return
-                }
                 var containsNewDepthData: Boolean
+                var newDepthTimestamp: Long = -1
                 try {
                     frame.acquireRawDepthImage16Bits().use { depthImage ->
-                        containsNewDepthData = mDepthTimestamp == depthImage.timestamp
-                        mDepthTimestamp = depthImage.timestamp
+                        containsNewDepthData = mDepthTimestamp != depthImage.timestamp
+                        newDepthTimestamp = depthImage.timestamp
                     }
                 } catch (e: NotYetAvailableException) {
                     // This is normal at the beginning of session, where depth hasn't been estimated yet.
                     containsNewDepthData = false
                 }
                 if (containsNewDepthData){
-                    if (mAnchor == null) {
-                        mAnchor = session.createAnchor(frame.getCamera().getPose());
-                        Log.d(TAG, "created starting anchor")
-                    }
+                    mShouldWrite.set(false)
+                    mDepthTimestamp = newDepthTimestamp
 
                     val depth0: DepthData? = DepthData.create(session, frame)
                     depth0?.let {depth ->
