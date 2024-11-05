@@ -1,124 +1,119 @@
+package com.example.app
 
-/*
- * Copyright 2021 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+import com.google.ar.core.CameraIntrinsics
+import com.google.ar.core.Frame
+import com.google.ar.core.Pose
+import com.google.ar.core.exceptions.NotYetAvailableException
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import java.nio.ShortBuffer
 
-package com.example.app;
+class DepthData(
+    /** depth buffer millimeters  */
+    private val depth: ShortBuffer,
+    private val depthWidth: Int,
+    private val depthHeight: Int,
+    private val depthConfidence: ByteBuffer,
+    /** Buffer of RGB color values.  */
+    private val colors: FloatBuffer,
+    /** The timestamp in nanoseconds when the raw depth image was observed.  */
+    private val timestamp: Long,
+    private val cameraIntrinsics: CameraIntrinsics,
+    private val cameraPose: Pose
+) {
 
-import android.media.Image;
-import com.google.ar.core.Anchor;
-import com.google.ar.core.CameraIntrinsics;
-import com.google.ar.core.Frame;
-import com.google.ar.core.Session;
-import com.google.ar.core.exceptions.NotYetAvailableException;
-import java.nio.FloatBuffer;
+    fun serializeToFile(fileOut: FileOutputStream) {
+        val camMat = FloatArray(16)
+        this.cameraPose.toMatrix(camMat, 0)
+        var camMatStr = ""
 
-public final class DepthData {
-    /** Buffer of point coordinates and confidence values. */
-    private FloatBuffer points;
-
-    /** Buffer of point RGB color values. */
-    private FloatBuffer colors;
-
-    /** The anchor to the 3D position of the camera at the point of depth acquisition. */
-    private final Anchor anchor;
-
-    /** The timestamp in nanoseconds when the raw depth image was observed. */
-    private long timestamp;
-
-    private DepthData(
-            FloatBuffer points, FloatBuffer colors, long timestamp, Anchor cameraPoseAnchor) {
-        this.points = points;
-        this.colors = colors;
-        this.timestamp = timestamp;
-        this.anchor = cameraPoseAnchor;
-    }
-
-    public static DepthData create(Session session, Frame frame) {
-        try (Image cameraImage = frame.acquireCameraImage();
-             Image depthImage = frame.acquireRawDepthImage16Bits();
-             Image confidenceImage = frame.acquireRawDepthConfidenceImage()) {
-            // Depth images vary in size depending on device, and can be large on devices with a depth
-            // camera. To ensure smooth framerate, we cap the number of points each frame.
-            final int maxNumberOfPointsToRender = 15000;
-
-            // To transform 2D depth pixels into 3D points we retrieve the intrinsic camera parameters
-            // corresponding to the depth image. See more information about the depth values at
-            // https://developers.google.com/ar/develop/java/depth/overview#understand-depth-values.
-            CameraIntrinsics intrinsics = frame.getCamera().getTextureIntrinsics();
-            FloatBuffer points =
-                    PointCloudHelper.convertRawDepthImagesTo3dPointBuffer(
-                            depthImage, confidenceImage, intrinsics, maxNumberOfPointsToRender);
-
-            // To give each point a color from the RGB camera we need to look up the RGB pixel
-            // corresponding to each depth pixel. RGB and depth images usually have different aspect
-            // ratios. Here we calculate the CPU image region that corresponds to the area covered by the
-            // depth image.
-            FloatBuffer imageRegionCoordinates =
-                    PointCloudHelper.getImageCoordinatesForFullTexture(frame);
-
-            FloatBuffer colors =
-                    PointCloudHelper.convertImageToColorBuffer(
-                            cameraImage, depthImage, imageRegionCoordinates, maxNumberOfPointsToRender);
-
-            //Anchor cameraPoseAnchor = session.createAnchor(frame.getCamera().getPose());
-            Anchor cameraPoseAnchor = null;
-            return new DepthData(points, colors, depthImage.getTimestamp(), cameraPoseAnchor);
-        } catch (NotYetAvailableException e) {
-            // This normally means that depth data is not available yet. This is normal so we will not
-            // spam the logcat with this.
+        for (v in camMat) {
+            camMatStr += "${v}\n"
         }
 
-        return null;
+        val intrinsicsDimensions: IntArray = this.cameraIntrinsics.getImageDimensions()
+        val fx: Float =
+            cameraIntrinsics.getFocalLength()[0] * depthWidth / intrinsicsDimensions[0]
+        val fy: Float =
+            cameraIntrinsics.getFocalLength()[1] * depthHeight / intrinsicsDimensions[1]
+        val cx: Float =
+            cameraIntrinsics.getPrincipalPoint()[0] * depthWidth / intrinsicsDimensions[0]
+        val cy: Float =
+            cameraIntrinsics.getPrincipalPoint()[1] * depthHeight / intrinsicsDimensions[1]
+
+        val header = "depth-size\n${this.depthWidth} ${this.depthHeight}\n" +
+                "timestamp\n${this.timestamp}\n" +
+                "intrinsics\n$fx $fy $cx $cy\n" +
+                "camera-pose\n${camMatStr}\n"
+
+        fileOut.write(header.toByteArray())
+
+        fileOut.write("depth\n".toByteArray())
+        while (this.depth.hasRemaining()){
+            fileOut.write("${this.depth.get()}\n".toByteArray())
+        }
+
+        fileOut.write("confidence\n".toByteArray())
+        while (this.depthConfidence.hasRemaining()){
+            fileOut.write("${this.depthConfidence.get()}\n".toByteArray())
+        }
+
+        fileOut.write("colors\n".toByteArray())
+        while (this.colors.hasRemaining()){
+            fileOut.write("${this.colors.get()} ${this.colors.get()} ${this.colors.get()}\n".toByteArray())
+        }
     }
 
-    /**
-     * Buffer of point coordinates and confidence values.
-     *
-     * <p>Each point is represented by four consecutive values in the buffer; first the X, Y, Z
-     * position coordinates, followed by a confidence value. This is the same format as described in
-     * {@link android.graphics.ImageFormat#DEPTH_POINT_CLOUD}.
-     *
-     * <p>Point locations are in the world coordinate space, consistent with the camera position for
-     * the frame that provided the point cloud.
-     */
-    public FloatBuffer getPoints() {
-        return points;
+    fun getModelMatrix(modelMatrix: FloatArray) {
+        cameraPose.toMatrix(modelMatrix, 0)
     }
 
-    /**
-     * Buffer of point RGB values from the color camera.
-     *
-     * <p>Each point is represented by three consecutive values in the buffer for the red, green and
-     * blue image channels. The values for each color are in 0-1 range (inclusive).
-     */
-    public FloatBuffer getColors() {
-        return colors;
+}
+
+fun createDepthData(frame: Frame): DepthData? {
+    try {
+        frame.acquireCameraImage().use { cameraImage ->
+            frame.acquireRawDepthImage16Bits().use { depthImage ->
+                frame.acquireRawDepthConfidenceImage().use { confidenceImage ->
+                    val intrinsics = frame.camera.textureIntrinsics
+                    val depthBuf =
+                        depthImage.planes[0].buffer.order(ByteOrder.nativeOrder())
+                            .asShortBuffer().asReadOnlyBuffer()
+
+                    val depth = ShortBuffer.allocate(depthBuf.remaining())
+                    depth.put(depthBuf)
+                    depth.rewind()
+
+                    val imageRegionCoordinates =
+                        PointCloudHelper.getImageCoordinatesForFullTexture(frame)
+
+                    val colors = PointCloudHelper.convertImageToColorBufferDepthSized(
+                        cameraImage,
+                        depthImage,
+                        imageRegionCoordinates
+                    )
+
+                    val depthConfidenceBuf =
+                        confidenceImage.planes[0].buffer.order(ByteOrder.nativeOrder())
+                            .asReadOnlyBuffer()
+                    val depthConfidence =
+                        ByteBuffer.allocate(depthConfidenceBuf.remaining())
+                    depthConfidence.put(depthConfidenceBuf)
+                    depthConfidence.rewind()
+                    return DepthData(
+                        depth, depthImage.width, depthImage.height,
+                        depthConfidence, colors, depthImage.timestamp, intrinsics,
+                        frame.camera.pose
+                    )
+                }
+            }
+        }
+    } catch (e: NotYetAvailableException) {
+        // This normally means that depth data is not available yet. This is normal so we will not
+        // spam the logcat with this.
     }
 
-    /** Returns the anchor corresponding to the camera pose where the depth data was acquired. */
-    public Anchor getAnchor() {
-        return anchor;
-    }
-
-    /**
-     * Retrieves the linearized column-major 4x4 matrix representing the transform from pointcloud to
-     * the session coordinates.
-     */
-    public void getModelMatrix(float[] modelMatrix) {
-        anchor.getPose().toMatrix(modelMatrix, 0);
-    }
-
+    return null
 }

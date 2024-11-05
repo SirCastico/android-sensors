@@ -30,10 +30,6 @@ import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
-import java.nio.ShortBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -185,21 +181,12 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     mShouldWrite.set(false)
                     mDepthTimestamp = newDepthTimestamp
 
-                    val depth0: DepthData? = DepthData.create(session, frame)
+                    val depth0: DepthData? = createDepthData(frame)
+
                     depth0?.let {depth ->
                         openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                            Log.d(TAG, "starting file write, ${depth.points.remaining()} floats")
-                            val point = FloatArray(4)
-                            while (depth.points.hasRemaining()) {
-                                point[0] = depth.points.get()
-                                point[1] = depth.points.get()
-                                point[2] = depth.points.get()
-                                point[3] = depth.points.get()
-
-                                //point = mAnchor.pose.transformPoint(point)
-                                val outStr = "${point[0]} ${point[1]} ${point[2]} ${point[3]}\n".toByteArray()
-                                file.write(outStr)
-                            }
+                            Log.d(TAG, "starting file write")
+                            depth.serializeToFile(file)
                         }
                         Log.d(TAG, "wrote to file data_$mCurrentInd")
                         mCurrentInd=(mCurrentInd+1)%10

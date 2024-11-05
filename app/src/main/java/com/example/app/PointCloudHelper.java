@@ -120,7 +120,7 @@ public final class PointCloudHelper {
      * Creates a linear buffer of RGB color values corresponding to the values in the depth image.
      * Pixels with the depth value equal to zero are not included in the output.
      */
-    public static FloatBuffer convertImageToColorBuffer(
+    public static FloatBuffer convertImageToColorBufferPoints(
             Image color, Image depth, FloatBuffer imageCoords, int pointLimit) {
         int depthWidth = depth.getWidth();
         int depthHeight = depth.getHeight();
@@ -172,6 +172,120 @@ public final class PointCloudHelper {
 
                 // Each channel value is an unsigned byte, so we need to apply `0xff` to convert the sign.
                 int channelValueY = colorBufferY.get(colorY * rowStrideY + colorX * pixelStrideY) & 0xff;
+                int channelValueU =
+                        colorBufferU.get(colorHalfY * rowStrideU + colorHalfX * pixelStrideU) & 0xff;
+                int channelValueV =
+                        colorBufferV.get(colorHalfY * rowStrideV + colorHalfX * pixelStrideV) & 0xff;
+
+                convertYuvToRgb(channelValueY, channelValueU, channelValueV, rgb);
+                colors.put(rgb[0]);
+                colors.put(rgb[1]);
+                colors.put(rgb[2]);
+            }
+        }
+
+        colors.rewind();
+
+        return colors;
+    }
+
+
+    public static FloatBuffer convertImageToColorBufferDepthSized(
+            Image color, Image depth, FloatBuffer imageCoords) {
+        int depthWidth = depth.getWidth();
+        int depthHeight = depth.getHeight();
+        int colorWidth = color.getWidth();
+        int colorHeight = color.getHeight();
+        Plane imagePlaneY = color.getPlanes()[0];
+        Plane imagePlaneU = color.getPlanes()[1];
+        Plane imagePlaneV = color.getPlanes()[2];
+        int rowStrideY = imagePlaneY.getRowStride();
+        int rowStrideU = imagePlaneU.getRowStride();
+        int rowStrideV = imagePlaneV.getRowStride();
+        int pixelStrideY = imagePlaneY.getPixelStride();
+        int pixelStrideU = imagePlaneU.getPixelStride();
+        int pixelStrideV = imagePlaneV.getPixelStride();
+        ByteBuffer colorBufferY = imagePlaneY.getBuffer();
+        ByteBuffer colorBufferU = imagePlaneU.getBuffer();
+        ByteBuffer colorBufferV = imagePlaneV.getBuffer();
+
+        // The first CPU image row overlapping with the depth image region.
+        int colorMinY = Math.round(imageCoords.get(1));
+        // The last CPU image row overlapping with the depth image region.
+        int colorMaxY = Math.round(imageCoords.get(3));
+        int colorRegionHeight = colorMaxY - colorMinY;
+
+        Plane depthImagePlane = depth.getPlanes()[0];
+        ShortBuffer depthBuffer =
+                depthImagePlane.getBuffer().order(ByteOrder.nativeOrder()).asShortBuffer();
+
+        // Allocate the destination color buffer.
+        FloatBuffer colors =
+                FloatBuffer.allocate(
+                        depthWidth * depthHeight * COLOR_FLOATS_PER_POINT);
+
+        float[] rgb = new float[3]; // Reusable space for 3-channel color values.
+
+        for (int y = 0; y < depthHeight; y += 1) {
+            for (int x = 0; x < depthWidth; x += 1) {
+                if (depthBuffer.get(y * depthWidth + x) == 0) {
+                    // A pixel that has a value of zero has a missing depth estimate at this location.
+                    continue;
+                }
+
+                // Retrieve the color at this point.
+                int colorX = x * colorWidth / depthWidth;
+                int colorY = colorMinY + y * colorRegionHeight / depthHeight;
+                int colorHalfX = colorX / 2;
+                int colorHalfY = colorY / 2;
+
+                // Each channel value is an unsigned byte, so we need to apply `0xff` to convert the sign.
+                int channelValueY = colorBufferY.get(colorY * rowStrideY + colorX * pixelStrideY) & 0xff;
+                int channelValueU =
+                        colorBufferU.get(colorHalfY * rowStrideU + colorHalfX * pixelStrideU) & 0xff;
+                int channelValueV =
+                        colorBufferV.get(colorHalfY * rowStrideV + colorHalfX * pixelStrideV) & 0xff;
+
+                convertYuvToRgb(channelValueY, channelValueU, channelValueV, rgb);
+                colors.put(rgb[0]);
+                colors.put(rgb[1]);
+                colors.put(rgb[2]);
+            }
+        }
+
+        colors.rewind();
+
+        return colors;
+    }
+
+    public static FloatBuffer convertImageToColorBuffer(Image color) {
+        int colorWidth = color.getWidth();
+        int colorHeight = color.getHeight();
+        Plane imagePlaneY = color.getPlanes()[0];
+        Plane imagePlaneU = color.getPlanes()[1];
+        Plane imagePlaneV = color.getPlanes()[2];
+        int rowStrideY = imagePlaneY.getRowStride();
+        int rowStrideU = imagePlaneU.getRowStride();
+        int rowStrideV = imagePlaneV.getRowStride();
+        int pixelStrideY = imagePlaneY.getPixelStride();
+        int pixelStrideU = imagePlaneU.getPixelStride();
+        int pixelStrideV = imagePlaneV.getPixelStride();
+        ByteBuffer colorBufferY = imagePlaneY.getBuffer();
+        ByteBuffer colorBufferU = imagePlaneU.getBuffer();
+        ByteBuffer colorBufferV = imagePlaneV.getBuffer();
+
+        FloatBuffer colors = FloatBuffer.allocate(colorWidth * colorHeight * COLOR_FLOATS_PER_POINT);
+
+        float[] rgb = new float[3]; // Reusable space for 3-channel color values.
+
+        for (int y = 0; y < colorHeight; y += 1) {
+            for (int x = 0; x < colorWidth; x += 1) {
+                // Retrieve the color at this point.
+                int colorHalfX = x / 2;
+                int colorHalfY = y / 2;
+
+                // Each channel value is an unsigned byte, so we need to apply `0xff` to convert the sign.
+                int channelValueY = colorBufferY.get(y * rowStrideY + x * pixelStrideY) & 0xff;
                 int channelValueU =
                         colorBufferU.get(colorHalfY * rowStrideU + colorHalfX * pixelStrideU) & 0xff;
                 int channelValueV =
