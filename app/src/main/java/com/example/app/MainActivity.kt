@@ -2,6 +2,7 @@ package com.example.app
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.os.Bundle
@@ -12,31 +13,68 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.app.ui.theme.AppTheme
-import com.google.ar.core.Anchor
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
-import java.nio.ShortBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+
+import android.media.Image
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.YuvImage
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import com.google.ar.core.Frame
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.io.FileWriter
+import java.io.BufferedWriter
+
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+
+import android.graphics.Matrix
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Slider
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
@@ -45,11 +83,20 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mInfo: String
     private var mUserRequestedInstall = true
     private var mSession: Session? = null
-    private var mCurrentInd = 0
     var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
-    private var mDepthTimestamp: Long = -1
-    private var mAnchor: Anchor? = null
+
+    var currentFrameIndex by mutableStateOf(0)
+    var maxFrames by mutableStateOf(10)
+    var fps by mutableStateOf(30) // Default to 30 FPS
+
+
+    var isCapturing = false
+    private val handler = Handler(Looper.getMainLooper())
+
+    // Variable to hold the last captured image
+    var lastCapturedImage by mutableStateOf<Bitmap?>(null)
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,8 +110,11 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
         enableEdgeToEdge()
         setContent {
-            TextAppContent(info = mInfo)
+            AppTheme {
+                CaptureScreen(this)
+            }
         }
+
 
     }
 
@@ -91,10 +141,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         // Success: Safe to create the AR session.
                         val session = Session(this)
                         val config = session.getConfig()
+
+                        // Enable autofocus by setting the focus mode to AUTO
+                        config.focusMode = Config.FocusMode.AUTO
+
                         if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)){
                             config.setDepthMode(Config.DepthMode.AUTOMATIC)
                         } else {
-                            Log.e(TAG, "no arcore depth")
+                            Log.e(TAG, "no arcore  ")
                         }
                         session.configure(config)
                         //mAnchor = session.createAnchor(Pose.makeTranslation(0.0f,0.0f,0.0f))
@@ -127,18 +181,16 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
         if (mSession == null){
             Log.d(TAG, "presenting with session null")
-            setContent{
-                TextAppContent(info = mInfo)
-            }
         } else {
             Log.d(TAG, "presenting with session exists")
             mSession?.resume()
             //mSurface.onResume()
             setContent {
-                ButtonAppContent(this) {
-
+                AppTheme {
+                    CaptureScreen(this)
                 }
             }
+
         }
     }
 
@@ -155,83 +207,273 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         mSession?.setCameraTextureName(texArr[0])
     }
 
-    override fun onDrawFrame(unused: GL10) {
-        //GLES20.glClearColor(1.0f,0.0f,0.0f,1.0f)
-        Log.d(TAG, "on draw frame called")
+    override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
+        mDisplayRotationHelper.onSurfaceChanged(width, height)
+        GLES20.glViewport(0,0,width,height)
+    }
 
-        mSession?.let {session ->
+    override fun onDrawFrame(unused: GL10) {
+        mSession?.let { session ->
             mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
 
-            mAnchor?.let {
-                Log.d(
-                    TAG,
-                    "anchor pose :: transl: " +
-                            "${it.pose.translation.contentToString()}, " +
-                            "rot: ${it.pose.rotationQuaternion.contentToString()}"
-                )
-            }
-
-            if (mShouldWrite.get()){
+            if (mShouldWrite.get()) {
                 mShouldWrite.set(false)
-                val camera = frame.getCamera()
-                if (camera.getTrackingState() != TrackingState.TRACKING) {
-                    return
-                }
-                var containsNewDepthData: Boolean
+                val camera = frame.camera
+                if (camera.trackingState != TrackingState.TRACKING) return
+                Log.d(TAG, "FRAME: $currentFrameIndex")
                 try {
-                    frame.acquireRawDepthImage16Bits().use { depthImage ->
-                        containsNewDepthData = mDepthTimestamp == depthImage.timestamp
-                        mDepthTimestamp = depthImage.timestamp
-                    }
-                } catch (e: NotYetAvailableException) {
-                    // This is normal at the beginning of session, where depth hasn't been estimated yet.
-                    containsNewDepthData = false
-                }
-                if (containsNewDepthData){
-                    if (mAnchor == null) {
-                        mAnchor = session.createAnchor(frame.getCamera().getPose());
-                        Log.d(TAG, "created starting anchor")
-                    }
+                    // Define file names with the current index for cycling
+                    val rgbFileName = "camera_image_$currentFrameIndex.png"
 
-                    val depth0: DepthData? = DepthData.create(session, frame)
-                    depth0?.let {depth ->
-                        openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                            Log.d(TAG, "starting file write, ${depth.points.remaining()} floats")
-                            val point = FloatArray(4)
-                            while (depth.points.hasRemaining()) {
-                                point[0] = depth.points.get()
-                                point[1] = depth.points.get()
-                                point[2] = depth.points.get()
-                                point[3] = depth.points.get()
+                    // Capture and save only the RGB image
+                    frame.acquireCameraImage().use { image ->
+                        val rgbBitmap = imageToBitmap(image)
 
-                                //point = mAnchor.pose.transformPoint(point)
-                                val outStr = "${point[0]} ${point[1]} ${point[2]} ${point[3]}\n".toByteArray()
-                                file.write(outStr)
-                            }
+                        // Check if the phone is held in portrait or landscape mode
+                        val orientationDegrees = getDeviceRotationDegrees()
+
+                        // Rotate the image if necessary to match the device's orientation
+                        val rotatedBitmap = if (orientationDegrees == 90 || orientationDegrees == 270) {
+                            // If the device is in portrait orientation, rotate to match it
+                            rotateBitmap(rgbBitmap, 90)
+                        } else {
+                            rgbBitmap
                         }
-                        Log.d(TAG, "wrote to file data_$mCurrentInd")
-                        mCurrentInd=(mCurrentInd+1)%10
+
+                        // Update lastCapturedImage for UI display
+                        lastCapturedImage = rotatedBitmap
                     }
-                } else {
-                    Log.d(TAG, "No new depth data")
+
+                    // Update the frame index and cycle within maxFrames
+                    currentFrameIndex = (currentFrameIndex + 1) % maxFrames
+
+                } catch (e: NotYetAvailableException) {
+                    Log.e(TAG, "Required data not yet available: ${e.message}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving RGB and depth data: ${e.message}")
                 }
             }
         }
     }
 
-    override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
-        mDisplayRotationHelper.onSurfaceChanged(width, height)
-        GLES20.glViewport(0,0,width,height)
+
+    // Function to capture and save RGB and depth data
+    private fun saveRgbAndDepthData(frame: Frame, rgbFileName: String, dataFileName: String) {
+        // Acquire and save RGB image
+        val rgbBitmap = frame.acquireCameraImage().use { image ->
+            imageToBitmap(image).also { bitmap ->
+                saveBitmapAsPng(bitmap, rgbFileName)
+                Log.d(TAG, "Saved RGB image as $rgbFileName")
+            }
+        }
+
+        // Acquire depth data
+        val depthData = frame.acquireRawDepthImage16Bits().use { depthImage ->
+            depthImageToShortArray(depthImage)
+        }
+
+        // Resize depth data to match RGB resolution
+        val resizedDepthData = resizeDepthBilinear(depthData, 160, 120, rgbBitmap.width, rgbBitmap.height)
+
+        // Save combined RGB and depth information
+        saveRgbAndDepthFile(rgbBitmap, resizedDepthData, dataFileName)
     }
+
+    // Convert ARCore YUV image to Bitmap
+    private fun imageToBitmap(image: Image): Bitmap {
+        val yBuffer = image.planes[0].buffer
+        val uBuffer = image.planes[1].buffer
+        val vBuffer = image.planes[2].buffer
+
+        val ySize = yBuffer.remaining()
+        val uSize = uBuffer.remaining()
+        val vSize = vBuffer.remaining()
+
+        val nv21 = ByteArray(ySize + uSize + vSize)
+        yBuffer.get(nv21, 0, ySize)
+        vBuffer.get(nv21, ySize, vSize)
+        uBuffer.get(nv21, ySize + vSize, uSize)
+
+        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+        val out = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(android.graphics.Rect(0, 0, image.width, image.height), 100, out)
+        val jpegByteArray = out.toByteArray()
+        return BitmapFactory.decodeByteArray(jpegByteArray, 0, jpegByteArray.size)
+    }
+
+    // Convert ARCore Depth Image to ShortArray
+    private fun depthImageToShortArray(depthImage: Image): ShortArray {
+        val buffer = depthImage.planes[0].buffer.order(ByteOrder.nativeOrder()).asShortBuffer()
+        val depthArray = ShortArray(buffer.remaining())
+        buffer.get(depthArray)
+        return depthArray
+    }
+
+    // Bilinear interpolation to resize depth data to match RGB resolution
+    private fun resizeDepthBilinear(depthData: ShortArray, depthWidth: Int, depthHeight: Int, rgbWidth: Int, rgbHeight: Int): Array<Array<Short>> {
+        val resizedDepth = Array(rgbHeight) { Array(rgbWidth) { 0.toShort() } }
+
+        for (y in 0 until rgbHeight) {
+            for (x in 0 until rgbWidth) {
+                // Map RGB coordinates to depth coordinates
+                val gx = (x.toFloat() * depthWidth / rgbWidth).toFloat()
+                val gy = (y.toFloat() * depthHeight / rgbHeight).toFloat()
+
+                // Find the four neighboring pixels in depth space, ensuring they are within bounds
+                val x0 = gx.toInt().coerceIn(0, depthWidth - 1)
+                val x1 = (x0 + 1).coerceIn(0, depthWidth - 1)
+                val y0 = gy.toInt().coerceIn(0, depthHeight - 1)
+                val y1 = (y0 + 1).coerceIn(0, depthHeight - 1)
+
+                // Calculate interpolation weights
+                val wx = gx - x0
+                val wy = gy - y0
+
+                // Depth values at the four neighboring points, with bounds check
+                val depth00 = depthData.getOrNull(y0 * depthWidth + x0)?.toFloat() ?: 0f
+                val depth01 = depthData.getOrNull(y1 * depthWidth + x0)?.toFloat() ?: 0f
+                val depth10 = depthData.getOrNull(y0 * depthWidth + x1)?.toFloat() ?: 0f
+                val depth11 = depthData.getOrNull(y1 * depthWidth + x1)?.toFloat() ?: 0f
+
+                // Bilinear interpolation
+                val interpolatedDepth = ((1 - wx) * (1 - wy) * depth00 +
+                        wx * (1 - wy) * depth10 +
+                        (1 - wx) * wy * depth01 +
+                        wx * wy * depth11).toInt().toShort()
+
+                resizedDepth[y][x] = interpolatedDepth
+            }
+        }
+
+        return resizedDepth
+    }
+
+    // Save Bitmap as PNG file
+    private fun saveBitmapAsPng(bitmap: Bitmap, fileName: String) {
+        openFileOutput(fileName, Context.MODE_PRIVATE).use { fos ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+        }
+    }
+
+    // Save combined RGB and Depth data
+    private fun saveRgbAndDepthFile(rgbBitmap: Bitmap, depthData: Array<Array<Short>>, dataFileName: String) {
+        openFileOutput(dataFileName, Context.MODE_PRIVATE).use { fos ->
+            for (y in 0 until rgbBitmap.height) {
+                for (x in 0 until rgbBitmap.width) {
+                    // Get RGB values
+                    val pixelColor = rgbBitmap.getPixel(x, y)
+                    val red = (pixelColor shr 16) and 0xFF
+                    val green = (pixelColor shr 8) and 0xFF
+                    val blue = pixelColor and 0xFF
+
+                    // Get Depth value
+                    val depthValue = depthData[y][x]
+
+                    // Write RGB and depth data in a structured format
+                    fos.write(byteArrayOf(red.toByte(), green.toByte(), blue.toByte()))
+                    fos.write(ByteBuffer.allocate(2).putShort(depthValue).array())
+                }
+            }
+        }
+        Log.d(TAG, "Saved RGB+depth data as $dataFileName")
+    }
+
+    // Save combined RGB and Depth data as CSV for inspection
+    private fun saveRgbAndDepthCsv(rgbBitmap: Bitmap, depthData: Array<Array<Short>>, csvFileName: String) {
+        openFileOutput(csvFileName, Context.MODE_PRIVATE).use { fos ->
+            val writer = BufferedWriter(FileWriter(fos.fd))
+
+            // Write header
+            writer.write("Red,Green,Blue,Depth")
+            writer.newLine()
+
+            for (y in 0 until rgbBitmap.height) {
+                for (x in 0 until rgbBitmap.width) {
+                    // Get RGB values
+                    val pixelColor = rgbBitmap.getPixel(x, y)
+                    val red = (pixelColor shr 16) and 0xFF
+                    val green = (pixelColor shr 8) and 0xFF
+                    val blue = pixelColor and 0xFF
+
+                    // Get Depth value
+                    val depthValue = depthData[y][x]
+
+                    // Write RGB and depth values to CSV
+                    writer.write("$red,$green,$blue,$depthValue")
+                    writer.newLine()
+                }
+            }
+
+            writer.flush()
+            writer.close()
+        }
+        Log.d(TAG, "Saved RGB+depth data as CSV $csvFileName")
+    }
+
+
+    fun startAutomaticCapture() {
+        isCapturing = true
+        handler.post(captureRunnable)
+    }
+
+    fun stopAutomaticCapture() {
+        isCapturing = false
+        handler.removeCallbacks(captureRunnable)
+    }
+
+    private val captureRunnable = object : Runnable {
+        override fun run() {
+            if (isCapturing) {
+                mShouldWrite.set(true)
+                val delayMillis = (1000 / fps).toLong() // Convert FPS to milliseconds
+                handler.postDelayed(this, delayMillis)
+            }
+        }
+    }
+
+    fun takeSnapshot() {
+        if (isCapturing) stopAutomaticCapture()  // Stop auto-capture if it's running
+        mShouldWrite.set(true)
+        Log.d(TAG, "Manual Snapshot Taken - Frame: $currentFrameIndex")
+        if (isCapturing) startAutomaticCapture()  // Resume auto-capture if needed
+    }
+
+    private fun getDeviceRotationDegrees(): Int {
+        return when (resources.configuration.orientation) {
+            Configuration.ORIENTATION_PORTRAIT -> 90
+            Configuration.ORIENTATION_LANDSCAPE -> 0
+            else -> 0
+        }
+    }
+
+    private fun rotateBitmap(bitmap: Bitmap, degrees: Int): Bitmap {
+        val matrix = Matrix().apply { postRotate(degrees.toFloat()) }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
 }
 
-
 @Composable
-fun ButtonAppContent(main: MainActivity, callback: () -> Unit) {
-    AppTheme {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // GLSurfaceView takes the full screen
+fun CaptureScreen(main: MainActivity) {
+    var isCapturing by remember { mutableStateOf(main.isCapturing) }
+    val lastCapturedImage = main.lastCapturedImage
+    val frameCounter = "${main.currentFrameIndex + 1}/${main.maxFrames}"
+
+    LaunchedEffect(main.isCapturing) {
+        isCapturing = main.isCapturing
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Camera Preview with limited height to create space below
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f) // Take up available space but allow room below
+        ) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->
@@ -241,40 +483,136 @@ fun ButtonAppContent(main: MainActivity, callback: () -> Unit) {
                         setRenderer(main)
                         setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY)
                         setWillNotDraw(false)
-                        setOnClickListener {
-                            main.mShouldWrite.set(true)
-                            Log.d(main.TAG, "clicked")
-                        }
                     }
                 }
             )
+
+            // Display the last captured image if available
+            lastCapturedImage?.let { bitmap ->
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Last Captured Image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
         }
-    }
-}
 
-
-@Composable
-fun TextAppContent(info: String){
-    AppTheme {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            TextContent(content = info, Modifier.padding(innerPadding))
-        }
-    }
-}
-
-@Composable
-fun TextContent(content: String, modifier: Modifier = Modifier) {
-    Surface(color = Color.Black) {
+        // Frame Counter
         Text(
-            text = content,
-            modifier = modifier.padding(24.dp),
-            color = Color.White
+            text = "Frame: $frameCounter",
+            color = Color.White,
+            modifier = Modifier
+                .padding(8.dp)
+                .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(8.dp))
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         )
+
+        // Controls and button overlay
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // FPS Slider
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "FPS: ${main.fps}",
+                    color = Color.White,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Slider(
+                    value = main.fps.toFloat(),
+                    onValueChange = { newValue ->
+                        main.fps = newValue.toInt()
+                    },
+                    valueRange = 1f..60f,
+                    steps = 59,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Max Frames Slider
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Max Frames: ${main.maxFrames}",
+                    color = Color.White,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Slider(
+                    value = main.maxFrames.toFloat(),
+                    onValueChange = { newValue ->
+                        main.maxFrames = newValue.toInt()
+                    },
+                    valueRange = 1f..30f,
+                    steps = 29,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Capture Buttons Row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Start/Stop Capture Button
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (isCapturing) Color.hsl(0F, 1F, 0.36F) else Color.hsl(145F, 1F, 0.36F),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            if (main.isCapturing) {
+                                main.stopAutomaticCapture()
+                            } else {
+                                main.startAutomaticCapture()
+                            }
+                            isCapturing = main.isCapturing
+                        }
+                        .padding(16.dp)
+                        .weight(1f), // Take equal width as snapshot button
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isCapturing) "Stop Capturing" else "Start Capturing",
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Manual Snapshot Button
+                Box(
+                    modifier = Modifier
+                        .background(
+                            Color.hsl(200F, 1F, 0.36F),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            Log.d("CaptureScreen", "Manual snapshot button clicked")
+                            main.takeSnapshot() // Call the manual snapshot function in MainActivity
+                        }
+                        .padding(16.dp)
+                        .weight(1f), // Take equal width as capturing button
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Take Snapshot",
+                        color = Color.White
+                    )
+                }
+            }
+        }
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun AppPreview() {
-    ButtonAppContent(MainActivity()){}
-}
+
