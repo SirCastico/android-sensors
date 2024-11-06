@@ -9,13 +9,14 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
+import kotlin.experimental.and
 
 class DepthData(
     /** depth buffer millimeters  */
     private val depth: ShortBuffer,
     private val depthWidth: Int,
     private val depthHeight: Int,
-    private val depthConfidence: ByteBuffer,
+    private val depthConfidence: FloatBuffer,
     /** Buffer of RGB color values.  */
     private val colors: FloatBuffer,
     /** The timestamp in nanoseconds when the raw depth image was observed.  */
@@ -65,11 +66,6 @@ class DepthData(
             fileOut.write("${this.colors.get()} ${this.colors.get()} ${this.colors.get()}\n".toByteArray())
         }
     }
-
-    fun getModelMatrix(modelMatrix: FloatArray) {
-        cameraPose.toMatrix(modelMatrix, 0)
-    }
-
 }
 
 fun createDepthData(frame: Frame): DepthData? {
@@ -95,12 +91,26 @@ fun createDepthData(frame: Frame): DepthData? {
                         imageRegionCoordinates
                     )
 
+                    val depthConfidencePlane = confidenceImage.planes[0]
                     val depthConfidenceBuf =
-                        confidenceImage.planes[0].buffer.order(ByteOrder.nativeOrder())
-                            .asReadOnlyBuffer()
+                        depthConfidencePlane.buffer.order(ByteOrder.nativeOrder()).asReadOnlyBuffer()
+
                     val depthConfidence =
-                        ByteBuffer.allocate(depthConfidenceBuf.remaining())
-                    depthConfidence.put(depthConfidenceBuf)
+                        FloatBuffer.allocate(depthConfidenceBuf.remaining())
+
+                    for (y in 0..<depthImage.height){
+                        for (x in 0..<depthImage.width) {
+                            val confidenceVal: Byte =
+                                depthConfidenceBuf.get(
+                                    y * depthConfidencePlane.rowStride +
+                                            x * depthConfidencePlane.pixelStride
+                                )
+                            val confidenceNormalized =
+                                ((confidenceVal and 0xff.toByte()).toFloat()) / 255.0f
+
+                            depthConfidence.put(confidenceNormalized)
+                        }
+                    }
                     depthConfidence.rewind()
                     return DepthData(
                         depth, depthImage.width, depthImage.height,

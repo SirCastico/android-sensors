@@ -87,8 +87,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         // Success: Safe to create the AR session.
                         val session = Session(this)
                         val config = session.getConfig()
-                        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)){
-                            config.setDepthMode(Config.DepthMode.AUTOMATIC)
+                        if (session.isDepthModeSupported(Config.DepthMode.RAW_DEPTH_ONLY)){
+                            config.setDepthMode(Config.DepthMode.RAW_DEPTH_ONLY)
                         } else {
                             Log.e(TAG, "no arcore depth")
                         }

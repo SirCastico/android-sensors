@@ -18,6 +18,8 @@ package com.example.app;
 
 import android.media.Image;
 import android.media.Image.Plane;
+import android.opengl.Matrix;
+
 import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Coordinates2d;
 import com.google.ar.core.Frame;
@@ -38,7 +40,8 @@ public final class PointCloudHelper {
      * confidence values.
      */
     public static FloatBuffer convertRawDepthImagesTo3dPointBuffer(
-            Image depth, Image confidence, CameraIntrinsics cameraTextureIntrinsics, int pointLimit) {
+            Image depth, Image confidence, CameraIntrinsics cameraTextureIntrinsics, int pointLimit,
+            float[] transform) {
         Plane depthImagePlane = depth.getPlanes()[0];
         // Set the endianess to ensure we extract depth data in the correct byte order.
         ShortBuffer depthBuffer =
@@ -63,11 +66,13 @@ public final class PointCloudHelper {
         // Allocate the destination point buffer. If the number of depth pixels is larger than
         // `pointLimit` we do uniform image subsampling. Alternatively we could reduce the number of
         // points based on depth confidence at this stage.
-        //int step = calculateImageSubsamplingStep(depthWidth, depthHeight, pointLimit);
-        int step = 1;
+        int step = calculateImageSubsamplingStep(depthWidth, depthHeight, pointLimit);
         FloatBuffer points =
                 FloatBuffer.allocate(
                         depthWidth / step * depthHeight / step * POSITION_FLOATS_PER_POINT);
+
+        float[] pointCamera = new float[4];
+        float[] pointWorld = new float[4];
 
         for (int y = 0; y < depthHeight; y += step) {
             for (int x = 0; x < depthWidth; x += step) {
@@ -80,9 +85,12 @@ public final class PointCloudHelper {
 
                 float depthMeters = depthMillimeters / 1000.0f;
 
-                points.put(depthMeters * (x - cx) / fx); // X.
-                points.put(depthMeters * (cy - y) / fy); // Y.
-                points.put(-depthMeters); // Z.
+                pointCamera[0] = depthMeters * (x - cx) / fx; // X.
+                pointCamera[1] = depthMeters * (cy - y) / fy; // Y.
+                pointCamera[2] = -depthMeters; // Z.
+                pointCamera[3] = 1;
+
+                Matrix.multiplyMV(pointWorld, 0, transform, 0, pointCamera, 0);
 
                 // Depth confidence value for this pixel, stored as an unsigned byte in range [0, 255].
                 byte confidencePixelValue =
@@ -91,6 +99,10 @@ public final class PointCloudHelper {
                                         + x * confidenceImagePlane.getPixelStride());
                 // Normalize depth confidence to [0.0, 1.0] float range.
                 float confidenceNormalized = ((float) (confidencePixelValue & 0xff)) / 255.0f;
+
+                points.put(pointWorld[0]);
+                points.put(pointWorld[1]);
+                points.put(pointWorld[2]);
                 points.put(confidenceNormalized);
             }
         }
