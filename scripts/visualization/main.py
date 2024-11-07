@@ -28,13 +28,13 @@ def depth_size_fn(line: str) -> tuple[tuple[int,int],State]:
 
 def depth_fn(line: str) -> tuple[int, State]:
     if line[0].isalpha():
-        return (0, State.START)
+        return (0, start_fn(line))
     else:
         return (int(line), State.DEPTH)
 
 def colors_fn(line: str) -> tuple[tuple[float, float, float], State]:
     if line[0].isalpha():
-        return (None, State.START)
+        return (None, start_fn(line))
     else:
         spl = line.split()
         v = (float(spl[0]), float(spl[1]), float(spl[2]))
@@ -77,13 +77,31 @@ for line in lines:
             if curr_state == State.COLORS:
                 colors.append(color_v)
 
-depth = chunks(depth, depth_size[0])
-colors = chunks(colors, depth_size[0])
+
+depth_bounded = []
+
+low_bound = 0
+high_bound = 3000
+
+for v in depth:
+    if v > high_bound:
+        new_v = high_bound
+    elif v < low_bound:
+        new_v = low_bound
+    else:
+        new_v = v
+    depth_bounded.append(high_bound - new_v + low_bound)
+    #depth_bounded.append(new_v)
+
+depth_bounded = chunks(depth_bounded, depth_size[0])
+#depth = chunks(depth, depth_size[0])
+#colors = chunks(colors, depth_size[0])
 
 #print(len(colors[0]), len(colors))
-print(len(depth[0]), len(depth))
+#print(len(depth[0]), len(depth))
 
-plt.imshow(depth, cmap='gray', vmin=0, vmax=2**16)
+#plt.imshow(depth, cmap='gray', vmin=0, vmax=2**16-1)
 #plt.imshow(colors)
+plt.imshow(depth_bounded, cmap='gray', vmin=low_bound, vmax=high_bound)
 
 plt.show()
