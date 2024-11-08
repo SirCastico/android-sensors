@@ -87,6 +87,7 @@ class PointCloudRenderer(
     }
 
     fun draw(camera: Camera, confidenceThreshold: Float, pointSize: Float){
+        Log.d(TAG, "drawing")
         val projectionMatrix = FloatArray(16)
         val viewMatrix = FloatArray(16)
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
