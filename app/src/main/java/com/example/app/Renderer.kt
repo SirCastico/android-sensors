@@ -102,6 +102,8 @@ class PointCloudRenderer(
         GLES20.glVertexAttribPointer(
             positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
 
+        logIfGlError(TAG, "render before loop")
+
         for (i in frameInfos.indices){
             val frameInfo = frameInfos[i]
             if (frameInfo.numPoints==0) {
@@ -118,22 +120,24 @@ class PointCloudRenderer(
             GLES20.glUniform1f(confidenceThresholdUniform, confidenceThreshold)
 
             GLES20.glDrawArrays(GLES20.GL_POINTS, i*maxFramePointsNum, frameInfo.numPoints)
+
+            logIfGlError(TAG, "render end loop")
         }
         GLES20.glDisableVertexAttribArray(positionAttribute)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
 
-        logIfGlError(TAG, "render")
+        logIfGlError(TAG, "render end")
     }
 }
 
 fun createShader(context: Context, filePath: String, type: Int): Int{
     var shaderSource: String
-    context.assets.open(VERT_SHADER_FILE).use { input ->
+    context.assets.open(filePath).use { input ->
         InputStreamReader(input).use { reader ->
             shaderSource = reader.readText()
         }
     }
-    val shader: Int = GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER)
+    val shader: Int = GLES20.glCreateShader(type)
     GLES20.glShaderSource(shader, shaderSource)
     GLES20.glCompileShader(shader)
 
