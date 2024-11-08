@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
-    private var mAnchor: Anchor? = null
+    private lateinit var mRenderer: PointCloudRenderer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -131,9 +131,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             mSession?.resume()
             //mSurface.onResume()
             setContent {
-                ButtonAppContent(this) {
-
-                }
+                AppContent(this)
             }
         }
     }
@@ -149,6 +147,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
+        mRenderer = PointCloudRenderer(this, 60, 15000)
     }
 
     override fun onDrawFrame(unused: GL10) {
@@ -206,7 +205,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
 
 @Composable
-fun ButtonAppContent(main: MainActivity, callback: () -> Unit) {
+fun AppContent(main: MainActivity) {
     AppTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             // GLSurfaceView takes the full screen
@@ -254,5 +253,5 @@ fun TextContent(content: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun AppPreview() {
-    ButtonAppContent(MainActivity()){}
+    AppContent(MainActivity())
 }

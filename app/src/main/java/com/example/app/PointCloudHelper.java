@@ -12,6 +12,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * modified
  */
 
 package com.example.app;
@@ -39,7 +41,7 @@ public final class PointCloudHelper {
      * Creates a linear buffer of 3D point positions in the world space and the corresponding
      * confidence values.
      */
-    public static FloatBuffer convertRawDepthImagesTo3dPointBuffer(
+    public static FloatBuffer convertDepthTo3dWorldSpacePointBuffer(
             Image depth, Image confidence, CameraIntrinsics cameraTextureIntrinsics, int pointLimit,
             float[] transform) {
         Plane depthImagePlane = depth.getPlanes()[0];
@@ -111,6 +113,67 @@ public final class PointCloudHelper {
 
         return points;
     }
+
+    public static FloatBuffer convertDepthTo3dCameraSpacePointBuffer(
+            Image depth, Image confidence, CameraIntrinsics cameraTextureIntrinsics, int pointLimit) {
+        Plane depthImagePlane = depth.getPlanes()[0];
+        // Set the endianess to ensure we extract depth data in the correct byte order.
+        ShortBuffer depthBuffer =
+                depthImagePlane.getBuffer().order(ByteOrder.nativeOrder()).asShortBuffer();
+
+        Plane confidenceImagePlane = confidence.getPlanes()[0];
+        ByteBuffer confidenceBuffer = confidenceImagePlane.getBuffer().order(ByteOrder.nativeOrder());
+
+        // To transform 2D depth pixels into 3D points we retrieve the intrinsic camera parameters
+        // corresponding to the depth image. See more information about the depth values at
+        // https://developers.google.com/ar/develop/java/depth/overview#understand-depth-values.
+        int[] intrinsicsDimensions = cameraTextureIntrinsics.getImageDimensions();
+        int depthWidth = depth.getWidth();
+        int depthHeight = depth.getHeight();
+        float fx = cameraTextureIntrinsics.getFocalLength()[0] * depthWidth / intrinsicsDimensions[0];
+        float fy = cameraTextureIntrinsics.getFocalLength()[1] * depthHeight / intrinsicsDimensions[1];
+        float cx =
+                cameraTextureIntrinsics.getPrincipalPoint()[0] * depthWidth / intrinsicsDimensions[0];
+        float cy =
+                cameraTextureIntrinsics.getPrincipalPoint()[1] * depthHeight / intrinsicsDimensions[1];
+
+        // Allocate the destination point buffer. If the number of depth pixels is larger than
+        // `pointLimit` we do uniform image subsampling. Alternatively we could reduce the number of
+        // points based on depth confidence at this stage.
+        int step = calculateImageSubsamplingStep(depthWidth, depthHeight, pointLimit);
+        FloatBuffer points =
+                FloatBuffer.allocate(
+                        depthWidth / step * depthHeight / step * POSITION_FLOATS_PER_POINT);
+
+        for (int y = 0; y < depthHeight; y += step) {
+            for (int x = 0; x < depthWidth; x += step) {
+                // Depth images are tightly packed, so it's OK to not use row and pixel strides.
+                int depthMillimeters = depthBuffer.get(y * depthWidth + x); // Depth image pixels are in mm.
+                if (depthMillimeters == 0) {
+                    // A pixel that has a value of zero has a missing depth estimate at this location.
+                    continue;
+                }
+
+                float depthMeters = depthMillimeters / 1000.0f;
+
+                // Depth confidence value for this pixel, stored as an unsigned byte in range [0, 255].
+                byte confidencePixelValue =
+                        confidenceBuffer.get(
+                                y * confidenceImagePlane.getRowStride()
+                                        + x * confidenceImagePlane.getPixelStride());
+
+                points.put(depthMeters * (x - cx) / fx); // X.
+                points.put(depthMeters * (cy - y) / fy); // Y.
+                points.put(-depthMeters); // Z.
+                points.put(((float) (confidencePixelValue & 0xff)) / 255.0f);
+            }
+        }
+
+        points.rewind();
+
+        return points;
+    }
+
     /** Calculates the CPU image region that corresponds to the area covered by the depth image. */
     public static FloatBuffer getImageCoordinatesForFullTexture(Frame frame) {
         FloatBuffer textureCoords =
