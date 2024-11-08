@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
     private lateinit var mRenderer: PointCloudRenderer
+    private val pointMax = 15000
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -147,7 +148,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
-        mRenderer = PointCloudRenderer(this, 60, 15000)
+        mRenderer = PointCloudRenderer(this, 60, pointMax)
     }
 
     override fun onDrawFrame(unused: GL10) {
@@ -161,40 +162,31 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                 return
             }
 
-            Log.d(TAG, "camera :: transl: ${camera.pose.translation.contentToString()}" +
-                    ", rot ${camera.pose.rotationQuaternion.contentToString()}")
-
-            if (mShouldWrite.get()){
-                var containsNewDepthData: Boolean
-                var newDepthTimestamp: Long = -1
-                try {
-                    frame.acquireRawDepthImage16Bits().use { depthImage ->
-                        containsNewDepthData = mDepthTimestamp != depthImage.timestamp
-                        newDepthTimestamp = depthImage.timestamp
-                    }
-                } catch (e: NotYetAvailableException) {
-                    // This is normal at the beginning of session, where depth hasn't been estimated yet.
-                    containsNewDepthData = false
+            var containsNewDepthData: Boolean
+            var newDepthTimestamp: Long = -1
+            try {
+                frame.acquireRawDepthImage16Bits().use { depthImage ->
+                    containsNewDepthData = mDepthTimestamp != depthImage.timestamp
+                    newDepthTimestamp = depthImage.timestamp
                 }
-                if (containsNewDepthData){
-                    mShouldWrite.set(false)
-                    mDepthTimestamp = newDepthTimestamp
-
-                    val depth0: DepthData? = createDepthData(frame)
-
-                    depth0?.let {depth ->
-                        openFileOutput("data_$mCurrentInd", Context.MODE_PRIVATE).use { file ->
-                            Log.d(TAG, "starting file write")
-                            depth.serializeToFile(file)
-                        }
-                        Log.d(TAG, "wrote to file data_$mCurrentInd")
-                        mCurrentInd=(mCurrentInd+1)%10
-                    }
-                } else {
-                    Log.d(TAG, "No new depth data")
-                }
+            } catch (e: NotYetAvailableException) {
+                // This is normal at the beginning of session, where depth hasn't been estimated yet.
+                containsNewDepthData = false
             }
+            if (containsNewDepthData){
+                mDepthTimestamp = newDepthTimestamp
+
+                PointCloudData.create(frame, camera.pose, pointMax)?.let { pointData ->
+                    mRenderer.addPoints(pointData)
+                }
+
+            } else {
+                Log.d(TAG, "No new depth data")
+            }
+
+            mRenderer.draw(camera, 0.3f, 5.0f)
         }
+
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {

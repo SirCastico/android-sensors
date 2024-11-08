@@ -1,5 +1,6 @@
 package com.example.app
 
+import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
 import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
 import com.google.ar.core.Frame
 import com.google.ar.core.Pose
@@ -21,11 +22,11 @@ class PointCloudData(
                 val confidenceImage = frame.acquireRawDepthConfidenceImage()
 
                 val intrinsics = frame.camera.textureIntrinsics
-                val transform = FloatArray(16)
-                cameraPose.toMatrix(transform,0)
+                //val transform = FloatArray(16)
+                //cameraPose.toMatrix(transform,0)
 
-                val points = convertDepthTo3dWorldSpacePointBuffer(
-                    depthImage, confidenceImage, intrinsics, pointLimit, transform
+                val points = convertDepthTo3dCameraSpacePointBuffer(
+                    depthImage, confidenceImage, intrinsics, pointLimit
                 )
 
                 depthImage.close()

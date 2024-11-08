@@ -7,11 +7,12 @@ import android.util.Log
 import com.example.app.PointCloudRenderer.Info.TAG
 import com.example.app.PointCloudRenderer.Info.VERT_SHADER_FILE
 import com.google.ar.core.Camera
+import com.google.ar.core.Pose
 import java.io.InputStreamReader
 import java.lang.RuntimeException
 import java.nio.FloatBuffer
 
-class FrameInfo(val numPoints: Int, val modelMatrix: FloatArray)
+class FrameInfo(val numPoints: Int, val cameraPose: Pose)
 
 class PointCloudRenderer(
     context: Context,
@@ -26,7 +27,7 @@ class PointCloudRenderer(
     }
 
     private val frameInfos: Array<FrameInfo> = Array(frameNum) {
-        FrameInfo(0, FloatArray(0))
+        FrameInfo(0, Pose.IDENTITY)
     }
     private var frameBufferCurrInd: Int = 0
 
@@ -39,6 +40,7 @@ class PointCloudRenderer(
     private val modelViewProjectionUniform: Int
     private val pointSizeUniform: Int
     private val confidenceThresholdUniform: Int
+    private val cameraPositionUniform: Int
 
     init {
 
@@ -66,6 +68,7 @@ class PointCloudRenderer(
         modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
         pointSizeUniform = GLES20.glGetUniformLocation(program, "u_PointSize")
         confidenceThresholdUniform = GLES20.glGetUniformLocation(program, "u_ConfidenceThreshold")
+        cameraPositionUniform = GLES20.glGetUniformLocation(program, "u_CameraPos")
 
         logIfGlError(TAG, "error on init")
     }
@@ -79,7 +82,7 @@ class PointCloudRenderer(
 
         val modelMatrix = FloatArray(16)
         pointData.cameraPose.toMatrix(modelMatrix, 0)
-        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, modelMatrix)
+        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraPose)
         frameBufferCurrInd = (frameBufferCurrInd+1) % frameNum
     }
 
@@ -89,6 +92,7 @@ class PointCloudRenderer(
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
         camera.getViewMatrix(viewMatrix, 0)
 
+        val modelMatrix = FloatArray(16)
         val modelView = FloatArray(16)
         val modelViewProjection = FloatArray(16)
 
@@ -100,11 +104,13 @@ class PointCloudRenderer(
 
         for (i in frameInfos.indices){
             val frameInfo = frameInfos[i]
-            if (frameInfo.numPoints==0){
+            if (frameInfo.numPoints==0) {
                 continue
             }
 
-            Matrix.multiplyMM(modelView, 0, viewMatrix, 0, frameInfo.modelMatrix, 0)
+            frameInfo.cameraPose.toMatrix(modelMatrix,0)
+
+            Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
             Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, viewMatrix, 0)
 
             GLES20.glUniformMatrix4fv(modelViewProjectionUniform, 1, false, modelViewProjection, 0)
