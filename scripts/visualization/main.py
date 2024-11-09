@@ -167,14 +167,16 @@ for v in data.depth:
     #depth_bounded.append(new_v)
 
 depth_bounded = chunks(depth_bounded, data.depth_size[0])
-#depth = chunks(depth, depth_size[0])
-#colors = chunks(colors, depth_size[0])
+colors = chunks(data.colors, data.depth_size[0])
 
 #print(len(colors[0]), len(colors))
 #print(len(depth[0]), len(depth))
 
-#plt.imshow(depth, cmap='gray', vmin=0, vmax=2**16-1)
-#plt.imshow(colors)
+fig = plt.figure(figsize=(10, 10))
+
+fig.add_subplot(1,2,1)
+plt.imshow(colors)
+fig.add_subplot(1,2,2)
 plt.imshow(depth_bounded, cmap='gray', vmin=low_bound, vmax=high_bound)
 
 plt.show()
