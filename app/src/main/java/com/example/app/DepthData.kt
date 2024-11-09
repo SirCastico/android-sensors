@@ -47,7 +47,7 @@ class DepthData(
         val header = "depth-size\n${this.depthWidth} ${this.depthHeight}\n" +
                 "timestamp\n${this.timestamp}\n" +
                 "intrinsics\n$fx $fy $cx $cy\n" +
-                "camera-pose\n${camMatStr}\n"
+                "camera-pose\n${camMatStr}"
 
         fileOut.write(header.toByteArray())
 

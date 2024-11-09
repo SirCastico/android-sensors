@@ -303,11 +303,6 @@ public final class PointCloudHelper {
 
         for (int y = 0; y < depthHeight; y += 1) {
             for (int x = 0; x < depthWidth; x += 1) {
-                if (depthBuffer.get(y * depthWidth + x) == 0) {
-                    // A pixel that has a value of zero has a missing depth estimate at this location.
-                    continue;
-                }
-
                 // Retrieve the color at this point.
                 int colorX = x * colorWidth / depthWidth;
                 int colorY = colorMinY + y * colorRegionHeight / depthHeight;
