@@ -3,6 +3,7 @@ package com.example.app
 import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.GLES20
+import android.opengl.GLES32
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.util.Log
@@ -144,6 +145,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 
     override fun onSurfaceCreated(unused: GL10, config: EGLConfig) {
+        GLES20.glEnable(GLES32.GL_DEBUG_OUTPUT)
+        GLES32.glDebugMessageCallback(GLES32.DebugProc { source, type, id, severity, message ->
+            if(type == GLES32.GL_DEBUG_TYPE_ERROR){
+                Log.e(TAG, "opengl error: $message")
+            } else {
+                Log.d(TAG, "opengl message: $message")
+            }
+        })
         GLES20.glClearColor(0.1f,0.1f,0.1f,1.0f)
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
@@ -151,7 +160,13 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         mRenderer = PointCloudRenderer(this, 60, pointMax)
     }
 
+    override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
+        mDisplayRotationHelper.onSurfaceChanged(width, height)
+        GLES20.glViewport(0,0,width,height)
+    }
+
     override fun onDrawFrame(unused: GL10) {
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         mSession?.let {session ->
             mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
@@ -188,11 +203,6 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         }
 
     }
-
-    override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
-        mDisplayRotationHelper.onSurfaceChanged(width, height)
-        GLES20.glViewport(0,0,width,height)
-    }
 }
 
 
@@ -205,7 +215,7 @@ fun AppContent(main: MainActivity) {
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->
                     GLSurfaceView(context).apply {
-                        setEGLContextClientVersion(2)
+                        setEGLContextClientVersion(3)
                         setPreserveEGLContextOnPause(true)
                         setRenderer(main)
                         setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY)
