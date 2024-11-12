@@ -7,13 +7,14 @@ import android.opengl.Matrix
 import android.util.Log
 import com.example.app.PointCloudRenderer.Info.TAG
 import com.example.app.PointCloudRenderer.Info.VERT_SHADER_FILE
+import com.google.ar.core.Anchor
 import com.google.ar.core.Camera
 import com.google.ar.core.Pose
 import java.io.InputStreamReader
 import java.lang.RuntimeException
 import java.nio.FloatBuffer
 
-class FrameInfo(val numPoints: Int, val cameraPose: Pose)
+class FrameInfo(val numPoints: Int, val cameraAnchor: Anchor?)
 
 class PointCloudRenderer(
     context: Context,
@@ -28,7 +29,7 @@ class PointCloudRenderer(
     }
 
     private val frameInfos: Array<FrameInfo> = Array(frameNum) {
-        FrameInfo(0, Pose.IDENTITY)
+        FrameInfo(0, null)
     }
     private var frameBufferCurrInd: Int = 0
 
@@ -82,9 +83,8 @@ class PointCloudRenderer(
         GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, offset, pointNum, pointData.points)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
 
-        val modelMatrix = FloatArray(16)
-        pointData.cameraPose.toMatrix(modelMatrix, 0)
-        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraPose)
+        frameInfos[frameBufferCurrInd].cameraAnchor?.detach()
+        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor)
         frameBufferCurrInd = (frameBufferCurrInd+1) % frameNum
     }
 
@@ -104,31 +104,29 @@ class PointCloudRenderer(
         var renderNum = 0
         for (i in frameInfos.indices){
             val frameInfo = frameInfos[i]
-            if (frameInfo.numPoints==0) {
-                continue
+            frameInfo.cameraAnchor?.let { anchor ->
+                GLES20.glUseProgram(program)
+                GLES20.glEnableVertexAttribArray(positionAttribute)
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
+                GLES20.glVertexAttribPointer(
+                    positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
+
+                anchor.pose.toMatrix(modelMatrix,0)
+
+                Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
+                Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
+
+                GLES20.glUniformMatrix4fv(modelViewProjectionUniform, 1, false, modelViewProjection, 0)
+                GLES20.glUniform1f(pointSizeUniform, pointSize)
+                GLES20.glUniform1f(confidenceThresholdUniform, confidenceThreshold)
+
+                GLES20.glDrawArrays(GLES20.GL_POINTS, i*maxFramePointsNum, frameInfo.numPoints)
+
+                GLES20.glDisableVertexAttribArray(positionAttribute)
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+                logIfGlError(TAG, "render end loop")
+                renderNum++
             }
-
-            GLES20.glUseProgram(program)
-            GLES20.glEnableVertexAttribArray(positionAttribute)
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
-            GLES20.glVertexAttribPointer(
-                positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
-
-            frameInfo.cameraPose.toMatrix(modelMatrix,0)
-
-            Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
-            Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, viewMatrix, 0)
-
-            GLES20.glUniformMatrix4fv(modelViewProjectionUniform, 1, false, modelViewProjection, 0)
-            GLES20.glUniform1f(pointSizeUniform, pointSize)
-            GLES20.glUniform1f(confidenceThresholdUniform, confidenceThreshold)
-
-            GLES20.glDrawArrays(GLES20.GL_POINTS, i*maxFramePointsNum, frameInfo.numPoints)
-
-            GLES20.glDisableVertexAttribArray(positionAttribute)
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-            logIfGlError(TAG, "render end loop")
-            renderNum++
         }
         Log.d(TAG, "rendered $renderNum frames")
 

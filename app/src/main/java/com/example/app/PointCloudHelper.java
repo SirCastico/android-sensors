@@ -162,10 +162,12 @@ public final class PointCloudHelper {
                                 y * confidenceImagePlane.getRowStride()
                                         + x * confidenceImagePlane.getPixelStride());
 
+                float confidenceNormalized = ((float) (confidencePixelValue & 0xff)) / 255.0f;
+
                 points.put(depthMeters * (x - cx) / fx); // X.
                 points.put(depthMeters * (cy - y) / fy); // Y.
                 points.put(-depthMeters); // Z.
-                points.put(((float) (confidencePixelValue & 0xff)) / 255.0f);
+                points.put(confidenceNormalized);
             }
         }
 

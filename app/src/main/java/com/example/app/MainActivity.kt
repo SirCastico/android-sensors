@@ -66,6 +66,11 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
     }
 
+    override fun onDestroy() {
+        mSession?.close()
+        super.onDestroy()
+    }
+
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "resuming")
@@ -138,8 +143,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         }
     }
 
-    override fun onStop() {
-        super.onStop()
+    override fun onPause() {
+        super.onPause()
         mSession?.pause()
         mDisplayRotationHelper.onPause()
     }
@@ -164,6 +169,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
+        Log.d(TAG, "surface changed: $width - $height")
         mDisplayRotationHelper.onSurfaceChanged(width, height)
         GLES20.glViewport(0,0,width,height)
     }
@@ -177,29 +183,27 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
             if (camera.getTrackingState() != TrackingState.TRACKING) {
                 Log.d(TAG, "camera not tracking")
-                return
-            }
-
-            var containsNewDepthData: Boolean
-            var newDepthTimestamp: Long = -1
-            try {
-                frame.acquireRawDepthImage16Bits().use { depthImage ->
-                    containsNewDepthData = mDepthTimestamp != depthImage.timestamp
-                    newDepthTimestamp = depthImage.timestamp
-                }
-            } catch (e: NotYetAvailableException) {
-                // This is normal at the beginning of session, where depth hasn't been estimated yet.
-                containsNewDepthData = false
-            }
-            if (containsNewDepthData){
-                mDepthTimestamp = newDepthTimestamp
-
-                PointCloudData.create(frame, camera.pose, pointMax)?.let { pointData ->
-                    mRenderer.addPoints(pointData)
-                }
-
             } else {
-                Log.d(TAG, "No new depth data")
+                var containsNewDepthData: Boolean
+                var newDepthTimestamp: Long = -1
+                try {
+                    frame.acquireRawDepthImage16Bits().use { depthImage ->
+                        containsNewDepthData = mDepthTimestamp != depthImage.timestamp
+                        newDepthTimestamp = depthImage.timestamp
+                    }
+                } catch (e: NotYetAvailableException) {
+                    // This is normal at the beginning of session, where depth hasn't been estimated yet.
+                    containsNewDepthData = false
+                }
+                if (containsNewDepthData){
+                    mDepthTimestamp = newDepthTimestamp
+
+                    PointCloudData.create(session, frame, pointMax)?.let { pointData ->
+                        mRenderer.addPoints(pointData)
+                    }
+                } else {
+                    Log.d(TAG, "No new depth data")
+                }
             }
 
             mRenderer.draw(camera, 0.3f, 5.0f)

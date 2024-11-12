@@ -2,21 +2,23 @@ package com.example.app
 
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
 import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
+import com.google.ar.core.Anchor
 import com.google.ar.core.Frame
 import com.google.ar.core.Pose
+import com.google.ar.core.Session
 import com.google.ar.core.exceptions.NotYetAvailableException
 import java.nio.FloatBuffer
 
 
 class PointCloudData(
     val points: FloatBuffer,
-    val cameraPose: Pose,
+    val cameraAnchor: Anchor,
 ){
     companion object Static{
         const val VALUES_PER_POINT = 4
         const val POINT_SIZE_BYTES = 4 * Float.SIZE_BYTES
 
-        fun create(frame: Frame, cameraPose: Pose, pointLimit: Int): PointCloudData? {
+        fun create(session: Session, frame: Frame, pointLimit: Int): PointCloudData? {
             try {
                 val depthImage = frame.acquireRawDepthImage16Bits()
                 val confidenceImage = frame.acquireRawDepthConfidenceImage()
@@ -32,7 +34,9 @@ class PointCloudData(
                 depthImage.close()
                 confidenceImage.close()
 
-                return PointCloudData(points, cameraPose)
+                val cameraAnchor = session.createAnchor(frame.camera.pose)
+
+                return PointCloudData(points, cameraAnchor)
             } catch (e: NotYetAvailableException) {
                 // This normally means that depth data is not available yet. This is normal so we will not
                 // spam the logcat with this.
