@@ -22,7 +22,7 @@ class PointCloudRenderer(
 ) {
 
     companion object Info {
-        const val TAG = "Renderer"
+        const val TAG = "PointCloudRenderer"
         const val VERT_SHADER_FILE = "point_cloud.vert"
         const val FRAG_SHADER_FILE = "point_cloud.frag"
     }
@@ -75,6 +75,7 @@ class PointCloudRenderer(
     }
 
     fun addPoints(pointData: PointCloudData){
+        Log.d(TAG, "subbing point cloud data at $frameBufferCurrInd")
         val offset = maxFramePointsNum * frameBufferCurrInd * PointCloudData.POINT_SIZE_BYTES
         val pointNum = pointData.points.remaining()
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
@@ -100,6 +101,7 @@ class PointCloudRenderer(
 
         logIfGlError(TAG, "render before loop")
 
+        var renderNum = 0
         for (i in frameInfos.indices){
             val frameInfo = frameInfos[i]
             if (frameInfo.numPoints==0) {
@@ -126,7 +128,9 @@ class PointCloudRenderer(
             GLES20.glDisableVertexAttribArray(positionAttribute)
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
             logIfGlError(TAG, "render end loop")
+            renderNum++
         }
+        Log.d(TAG, "rendered $renderNum frames")
 
         logIfGlError(TAG, "render end")
     }

@@ -148,14 +148,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         GLES20.glGetString(GLES20.GL_VERSION).also {
             Log.d(TAG, "Version: $it")
         }
-        GLES20.glEnable(GLES32.GL_DEBUG_OUTPUT)
-        GLES32.glDebugMessageCallback { source, type, id, severity, message ->
-            if (type == GLES32.GL_DEBUG_TYPE_ERROR) {
-                Log.e(PointCloudRenderer.TAG, "opengl error: $message")
-            } else {
-                Log.d(PointCloudRenderer.TAG, "opengl message: $message")
-            }
-        }
+        //GLES20.glEnable(GLES32.GL_DEBUG_OUTPUT)
+        //GLES32.glDebugMessageCallback { source, type, id, severity, message ->
+        //    if (type == GLES32.GL_DEBUG_TYPE_ERROR) {
+        //        Log.e(PointCloudRenderer.TAG, "opengl error: $message")
+        //    } else {
+        //        Log.d(PointCloudRenderer.TAG, "opengl message: $message")
+        //    }
+        //}
         GLES20.glClearColor(0.1f,0.1f,0.1f,1.0f)
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
