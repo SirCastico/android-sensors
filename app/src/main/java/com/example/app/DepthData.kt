@@ -16,6 +16,8 @@ class DepthData(
     private val depth: ShortBuffer,
     private val depthWidth: Int,
     private val depthHeight: Int,
+    private val colorWidth: Int,
+    private val colorHeight: Int,
     private val depthConfidence: FloatBuffer,
     /** Buffer of RGB color values.  */
     private val colors: FloatBuffer,
@@ -45,6 +47,7 @@ class DepthData(
             cameraIntrinsics.getPrincipalPoint()[1] * depthHeight / intrinsicsDimensions[1]
 
         val header = "depth-size\n${this.depthWidth} ${this.depthHeight}\n" +
+                "color-size\n${this.colorWidth} ${this.colorHeight}\n" +
                 "timestamp\n${this.timestamp}\n" +
                 "intrinsics\n$fx $fy $cx $cy\n" +
                 "camera-pose\n${camMatStr}"
@@ -82,14 +85,10 @@ fun createDepthData(frame: Frame): DepthData? {
                     depth.put(depthBuf)
                     depth.rewind()
 
-                    val imageRegionCoordinates =
-                        PointCloudHelper.getImageCoordinatesForFullTexture(frame)
+                    //val imageRegionCoordinates =
+                    //    PointCloudHelper.getImageCoordinatesForFullTexture(frame)
 
-                    val colors = PointCloudHelper.convertImageToColorBufferDepthSized(
-                        cameraImage,
-                        depthImage,
-                        imageRegionCoordinates
-                    )
+                    val colors = PointCloudHelper.getColorBuffer(cameraImage)
 
                     val depthConfidencePlane = confidenceImage.planes[0]
                     val depthConfidenceBuf =
@@ -113,7 +112,7 @@ fun createDepthData(frame: Frame): DepthData? {
                     }
                     depthConfidence.rewind()
                     return DepthData(
-                        depth, depthImage.width, depthImage.height,
+                        depth, depthImage.width, depthImage.height, cameraImage.width, cameraImage.height,
                         depthConfidence, colors, depthImage.timestamp, intrinsics,
                         frame.camera.pose
                     )

@@ -18,11 +18,14 @@ class State(Enum):
     CAMERA_POSE = 5
     TIMESTAMP = 6
     DEPTH_CONFIDENCE = 7
+    COLOR_SIZE = 8
 
 def start_fn(line: str) -> State:
     match line:
         case "depth-size":
             return State.DEPTH_SIZE
+        case "color-size":
+            return State.COLOR_SIZE
         case "depth":
             return State.DEPTH
         case "colors":
@@ -39,6 +42,11 @@ def start_fn(line: str) -> State:
             return State.START
 
 def depth_size_fn(line: str) -> tuple[tuple[int, int], State]:
+    spl = line.split()
+    v = (int(spl[0]), int(spl[1]))
+    return (v, State.START)
+
+def color_size_fn(line: str) -> tuple[tuple[int, int], State]:
     spl = line.split()
     v = (int(spl[0]), int(spl[1]))
     return (v, State.START)
@@ -82,6 +90,7 @@ class AppFileData:
     depth: list[int]
     colors: list[tuple[float, float, float]]
     depth_size: tuple[int, int]
+    color_size: tuple[int, int]
     confidence: list[float]
     camera_pose: list[float]
     intrinsics: Intrinsics
@@ -98,6 +107,7 @@ class AppFileData:
         colors = []
         confidence = []
         camera_pose = []
+        color_size = None
         intrinsics = None
         timestamp = 0
 
@@ -108,6 +118,8 @@ class AppFileData:
                     curr_state = start_fn(line)
                 case State.DEPTH_SIZE:
                     depth_size, curr_state = depth_size_fn(line)
+               case State.DEPTH_SIZE:
+                    color_size, curr_state = color_size_fn(line)
                 case State.DEPTH:
                     depth_v, curr_state = depth_fn(line)
                     if curr_state == State.DEPTH:
@@ -129,4 +141,4 @@ class AppFileData:
                 case State.TIMESTAMP:
                     timestamp, curr_state = timestamp_fn(line)
 
-        return AppFileData(depth, colors, depth_size, confidence, camera_pose, intrinsics, timestamp)
+        return AppFileData(depth, colors, depth_size, color_size, confidence, camera_pose, intrinsics, timestamp)
