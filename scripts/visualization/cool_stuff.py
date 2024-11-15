@@ -42,7 +42,7 @@ def get_depth_map_from_parsed_data(data: AppFileData) -> np.ndarray:
     return depth_map
 
 def get_color_image_from_parsed_data(data: AppFileData) -> np.ndarray:
-    color_data = np.array(data.colors).reshape(data.depth_size[1], data.depth_size[0], 3)
+    color_data = np.array(data.colors).reshape(data.color_size[1], data.color_size[0], 3)
     color_image = (color_data * 255).astype(np.uint8)
     return color_image
 
