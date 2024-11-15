@@ -57,7 +57,7 @@ def depth_fn(line: str) -> tuple[int, State]:
     else:
         return (int(line), State.DEPTH)
 
-def colors_fn(line: str) -> tuple[tuple[float, float, float], State]:
+def colors_fn(line: str) -> tuple[tuple[float, float, float] | None, State]:
     if line[0].isalpha():
         return (None, start_fn(line))
     else:
@@ -70,13 +70,13 @@ def intrinsics_fn(line: str) -> tuple[Intrinsics, State]:
     intr = Intrinsics(float(spl[0]), float(spl[1]), float(spl[2]), float(spl[3]))
     return (intr, State.START)
 
-def confidence_fn(line: str) -> tuple[float, State]:
+def confidence_fn(line: str) -> tuple[float | None, State]:
     if line[0].isalpha():
         return (None, start_fn(line))
     else:
         return (float(line), State.DEPTH_CONFIDENCE)
 
-def camera_pose_fn(line: str) -> tuple[float, State]:
+def camera_pose_fn(line: str) -> tuple[float | None, State]:
     if line[0].isalpha():
         return (None, start_fn(line))
     else:
@@ -118,7 +118,7 @@ class AppFileData:
                     curr_state = start_fn(line)
                 case State.DEPTH_SIZE:
                     depth_size, curr_state = depth_size_fn(line)
-               case State.DEPTH_SIZE:
+                case State.DEPTH_SIZE:
                     color_size, curr_state = color_size_fn(line)
                 case State.DEPTH:
                     depth_v, curr_state = depth_fn(line)
