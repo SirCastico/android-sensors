@@ -35,7 +35,7 @@ for v in data.depth:
     #depth_bounded.append(new_v)
 
 depth_bounded = chunks(depth_bounded, data.depth_size[0])
-colors = chunks(data.colors, data.depth_size[0])
+colors = chunks(data.colors, data.color_size[0])
 
 #print(len(colors[0]), len(colors))
 #print(len(depth[0]), len(depth))
