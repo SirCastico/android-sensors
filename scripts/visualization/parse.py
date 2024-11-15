@@ -118,7 +118,7 @@ class AppFileData:
                     curr_state = start_fn(line)
                 case State.DEPTH_SIZE:
                     depth_size, curr_state = depth_size_fn(line)
-                case State.DEPTH_SIZE:
+                case State.COLOR_SIZE:
                     color_size, curr_state = color_size_fn(line)
                 case State.DEPTH:
                     depth_v, curr_state = depth_fn(line)
