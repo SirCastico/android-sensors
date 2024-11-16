@@ -13,6 +13,7 @@ import java.nio.FloatBuffer
 class PointCloudData(
     val points: FloatBuffer,
     val cameraAnchor: Anchor,
+    val cameraTransf: FloatArray
 ){
     companion object Static{
         const val VALUES_PER_POINT = 4
@@ -35,8 +36,10 @@ class PointCloudData(
                 confidenceImage.close()
 
                 val cameraAnchor = session.createAnchor(frame.camera.pose)
+                val ctransf = FloatArray(16)
+                frame.camera.pose.toMatrix(ctransf,0)
 
-                return PointCloudData(points, cameraAnchor)
+                return PointCloudData(points, cameraAnchor, ctransf)
             } catch (e: NotYetAvailableException) {
                 // This normally means that depth data is not available yet. This is normal so we will not
                 // spam the logcat with this.
