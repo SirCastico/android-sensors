@@ -246,7 +246,7 @@ class PointCloudRenderer(
     fun addPoints(pointData: PointCloudData){
         Log.d(TAG, "subbing point cloud data at $frameBufferCurrInd")
         val offset = maxFramePointsNum * frameBufferCurrInd * PointCloudData.POINT_SIZE_BYTES
-        val pointNum = pointData.points.remaining() / PointCloudData.POINT_SIZE_BYTES
+        val pointNum = pointData.points.remaining() / PointCloudData.VALUES_PER_POINT
         val byteNum = pointData.points.remaining() * Float.SIZE_BYTES
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
         GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, offset, byteNum, pointData.points)
