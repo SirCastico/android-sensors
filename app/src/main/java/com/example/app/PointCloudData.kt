@@ -25,8 +25,6 @@ class PointCloudData(
                 val confidenceImage = frame.acquireRawDepthConfidenceImage()
 
                 val intrinsics = frame.camera.textureIntrinsics
-                //val transform = FloatArray(16)
-                //cameraPose.toMatrix(transform,0)
 
                 val points = convertDepthTo3dCameraSpacePointBuffer(
                     depthImage, confidenceImage, intrinsics, pointLimit
