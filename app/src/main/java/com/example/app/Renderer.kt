@@ -278,8 +278,8 @@ class PointCloudRenderer(
                 GLES20.glVertexAttribPointer(
                     positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
 
-                //frameInfo.cameraAnchor.pose.toMatrix(modelMatrix,0)
-                modelMatrix = frameInfo.cameraTransf
+                frameInfo.cameraAnchor.pose.toMatrix(modelMatrix,0)
+                //modelMatrix = frameInfo.cameraTransf
 
                 Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
                 Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
