@@ -27,6 +27,7 @@ import com.example.app.ui.theme.AppTheme
 import com.google.ar.core.Anchor
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
+import com.google.ar.core.Plane
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
@@ -46,7 +47,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
-    private lateinit var mRenderer: PointCloudRenderer
+    private lateinit var mRenderer: SinglePointCloudRenderer
     private val pointMax = 15000
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -165,7 +166,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
-        mRenderer = PointCloudRenderer(this, 60, pointMax)
+        mRenderer = SinglePointCloudRenderer(this, pointMax)
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
@@ -199,7 +200,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     mDepthTimestamp = newDepthTimestamp
 
                     PointCloudData.create(session, frame, pointMax)?.let { pointData ->
-                        mRenderer.addPoints(pointData)
+                        filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
+                        mRenderer.setPoints(pointData)
                     }
                 } else {
                     Log.d(TAG, "No new depth data")

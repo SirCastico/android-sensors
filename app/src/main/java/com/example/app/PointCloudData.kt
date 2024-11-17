@@ -33,7 +33,6 @@ class PointCloudData(
                 )
 
                 //filterUsingPlanes(points, session.getAllTrackables())
-                filterUsingPlanes(points, session.getAllTrackables(Plane::class.java))
 
                 depthImage.close()
                 confidenceImage.close()

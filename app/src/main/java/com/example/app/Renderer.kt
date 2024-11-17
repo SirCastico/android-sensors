@@ -303,6 +303,102 @@ class PointCloudRenderer(
     }
 }
 
+class SinglePointCloudRenderer(
+    context: Context,
+    maxFramePointsNum: Int
+) {
+
+    companion object Info {
+        const val TAG = "SinglePointCloudRenderer"
+        const val VERT_SHADER_FILE = "point_cloud.vert"
+        const val FRAG_SHADER_FILE = "point_cloud.frag"
+    }
+
+    private val pointBuffer: Int
+    private var numPoints: Int = 0
+
+    private val program: Int
+
+    private val positionAttribute: Int
+    private val modelViewProjectionUniform: Int
+    private val pointSizeUniform: Int
+    private val confidenceThresholdUniform: Int
+    private val cameraPositionUniform: Int
+
+    init {
+
+        val pbuffer = IntArray(1)
+        GLES20.glGenBuffers(1, pbuffer, 0)
+        pointBuffer = pbuffer[0]
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
+
+        val pointBufferSize = PointCloudData.POINT_SIZE_BYTES * maxFramePointsNum
+
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, pointBufferSize, null, GLES20.GL_DYNAMIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+
+        val vertShader = createShader(context, VERT_SHADER_FILE, GLES20.GL_VERTEX_SHADER)
+        val fragShader = createShader(context, FRAG_SHADER_FILE, GLES20.GL_FRAGMENT_SHADER)
+
+        program = GLES20.glCreateProgram()
+        GLES20.glAttachShader(program, vertShader)
+        GLES20.glAttachShader(program, fragShader)
+        GLES20.glLinkProgram(program)
+        GLES20.glUseProgram(program)
+
+        positionAttribute = GLES20.glGetAttribLocation(program, "a_Position")
+        modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
+        pointSizeUniform = GLES20.glGetUniformLocation(program, "u_PointSize")
+        confidenceThresholdUniform = GLES20.glGetUniformLocation(program, "u_ConfidenceThreshold")
+        cameraPositionUniform = GLES20.glGetUniformLocation(program, "u_CameraPos")
+
+        logIfGlError(TAG, "error on init")
+    }
+
+    fun setPoints(pointData: PointCloudData){
+        val byteNum = pointData.points.remaining() * Float.SIZE_BYTES
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
+        GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, byteNum, pointData.points)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+        numPoints = pointData.points.remaining() / PointCloudData.VALUES_PER_POINT
+    }
+
+    fun draw(camera: Camera, confidenceThreshold: Float, pointSize: Float){
+        val projectionMatrix = FloatArray(16)
+        val viewMatrix = FloatArray(16)
+        camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
+        camera.getViewMatrix(viewMatrix, 0)
+
+        val modelMatrix = FloatArray(16)
+        val modelView = FloatArray(16)
+        val modelViewProjection = FloatArray(16)
+
+        logIfGlError(TAG, "render before loop")
+
+        GLES20.glUseProgram(program)
+        GLES20.glEnableVertexAttribArray(positionAttribute)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
+        GLES20.glVertexAttribPointer(
+            positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
+
+        camera.pose.toMatrix(modelMatrix,0)
+
+        Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
+        Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
+
+        GLES20.glUniformMatrix4fv(modelViewProjectionUniform, 1, false, modelViewProjection, 0)
+        GLES20.glUniform1f(pointSizeUniform, pointSize)
+        GLES20.glUniform1f(confidenceThresholdUniform, confidenceThreshold)
+
+        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, numPoints)
+
+        GLES20.glDisableVertexAttribArray(positionAttribute)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+
+        logIfGlError(TAG, "render end")
+    }
+}
+
 class DepthRenderer(
     context: Context,
     private val depthWidth: Int,
