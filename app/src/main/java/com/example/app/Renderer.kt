@@ -316,6 +316,7 @@ class SinglePointCloudRenderer(
 
     private val pointBuffer: Int
     private var numPoints: Int = 0
+    private var cameraTransf: FloatArray = FloatArray(16)
 
     private val program: Int
 
@@ -361,6 +362,7 @@ class SinglePointCloudRenderer(
         GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, byteNum, pointData.points)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
         numPoints = pointData.points.remaining() / PointCloudData.VALUES_PER_POINT
+        cameraTransf = pointData.cameraTransf.copyOf()
     }
 
     fun draw(camera: Camera, confidenceThreshold: Float, pointSize: Float){
@@ -369,7 +371,7 @@ class SinglePointCloudRenderer(
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
         camera.getViewMatrix(viewMatrix, 0)
 
-        val modelMatrix = FloatArray(16)
+        val modelMatrix = cameraTransf.copyOf()
         val modelView = FloatArray(16)
         val modelViewProjection = FloatArray(16)
 
@@ -380,8 +382,6 @@ class SinglePointCloudRenderer(
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
         GLES20.glVertexAttribPointer(
             positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
-
-        camera.pose.toMatrix(modelMatrix,0)
 
         Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
