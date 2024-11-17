@@ -200,7 +200,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     mDepthTimestamp = newDepthTimestamp
 
                     PointCloudData.create(session, frame, pointMax)?.let { pointData ->
-                        filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
+                        // filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
                         mRenderer.setPoints(pointData)
                     }
                 } else {

@@ -9,6 +9,8 @@ import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
+import org.apache.commons.math3.ml.clustering.Cluster
+import org.apache.commons.math3.ml.clustering.Clusterable
 import java.nio.FloatBuffer
 import kotlin.math.abs
 
@@ -52,6 +54,46 @@ class PointCloudData(
     }
 }
 
+class AABB{
+    var sx: Float = Float.MAX_VALUE
+    var sy: Float = Float.MAX_VALUE
+    var sz: Float = Float.MAX_VALUE
+    var bx: Float = Float.MIN_VALUE
+    var by: Float = Float.MIN_VALUE
+    var bz: Float = Float.MIN_VALUE
+
+    fun update(x: Float, y: Float, z: Float){
+        if(x < sx) sx = x
+        if(y < sy) sy = y
+        if(z < sz) sz = z
+        if(x > bx) bx = x
+        if(y > by) by = y
+        if(z > bz) bz = z
+    }
+
+    fun volume() : Float{
+        return (bx - sx) * (by - sy) * (bz - sz)
+    }
+}
+
+@JvmInline
+value class Point(val data: FloatArray) : Clusterable {
+    override fun getPoint(): DoubleArray {
+        return doubleArrayOf(data[0].toDouble(),data[1].toDouble(),data[2].toDouble())
+    }
+}
+
+fun calculateAABBs(clusters: List<Cluster<Point>>): List<AABB>{
+    val aabbs = MutableList(0){AABB()}
+    for (cluster in clusters){
+        val aabb = AABB()
+        for (point in cluster.points){
+            aabb.update(point.data[0], point.data[1], point.data[2])
+        }
+        aabbs.add(aabb)
+    }
+    return aabbs
+}
 
 fun filterUsingPlanes(points: FloatBuffer, allPlanes: Collection<Plane>) {
     val planeNormal = FloatArray(3)

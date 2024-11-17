@@ -18,12 +18,6 @@ import java.nio.FloatBuffer
 
 data class FrameInfo(val numPoints: Int, val cameraAnchor: Anchor, val cameraTransf: FloatArray)
 
-@JvmInline
-value class Point(val data: FloatArray) : Clusterable {
-    override fun getPoint(): DoubleArray {
-        return doubleArrayOf(data[0].toDouble(),data[1].toDouble(),data[2].toDouble())
-    }
-}
 
 //class PointFrameBuffer(
 //    private val frameNum: Int,
