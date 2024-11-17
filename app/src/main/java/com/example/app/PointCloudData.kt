@@ -1,5 +1,6 @@
 package com.example.app
 
+import android.util.Log
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
 import com.google.ar.core.Anchor
 import com.google.ar.core.Frame
@@ -57,6 +58,7 @@ fun filterUsingPlanes(points: FloatBuffer, allPlanes: Collection<Plane>) {
 
     // Allocate the output buffer.
     val numPoints: Int = points.remaining() / PointCloudData.VALUES_PER_POINT
+    var filteredPoints = 0
 
     // Check each plane against each point.
     for (plane in allPlanes) {
@@ -90,8 +92,10 @@ fun filterUsingPlanes(points: FloatBuffer, allPlanes: Collection<Plane>) {
             points.put(PointCloudData.VALUES_PER_POINT * index + 1, 0.0f)
             points.put(PointCloudData.VALUES_PER_POINT * index + 2, 0.0f)
             points.put(PointCloudData.VALUES_PER_POINT * index + 3, 0.0f)
+            filteredPoints++
         }
     }
+    Log.d("PlaneFilterer", "filtered $filteredPoints points")
 }
 
 fun getDepthBuffer(frame: Frame): FloatBuffer? {
