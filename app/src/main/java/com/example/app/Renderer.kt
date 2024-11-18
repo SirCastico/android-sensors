@@ -6,12 +6,9 @@ import android.opengl.GLES30
 import android.opengl.Matrix
 import android.util.Log
 import com.example.app.PointCloudRenderer.Info.TAG
-import com.example.app.PointCloudRenderer.Info.VERT_SHADER_FILE
 import com.google.ar.core.Anchor
 import com.google.ar.core.Camera
-import com.google.ar.core.Pose
 import org.apache.commons.math3.ml.clustering.Cluster
-import org.apache.commons.math3.ml.clustering.Clusterable
 import java.io.InputStreamReader
 import java.lang.RuntimeException
 import java.nio.FloatBuffer
@@ -19,166 +16,201 @@ import java.nio.FloatBuffer
 data class FrameInfo(val numPoints: Int, val cameraAnchor: Anchor, val cameraTransf: FloatArray)
 
 
-//class PointFrameBuffer(
-//    private val frameNum: Int,
-//    private val maxFramePointsNum: Int
-//) : Collection<Point> {
-//    val cpuPointBuffer: FloatBuffer = FloatBuffer.allocate(frameNum * maxFramePointsNum * PointCloudData.VALUES_PER_POINT)
-//    val frameInfos: Array<FrameInfo?> = Array(frameNum) { null }
-//    private var frameBufferCurrInd: Int = 0
-//
-//    // can't be 0 points
-//    fun addPoints(pointData: PointCloudData){
-//        Log.d(TAG, "subbing point cloud data at $frameBufferCurrInd")
-//        val offset = maxFramePointsNum * frameBufferCurrInd
-//        val pointNum = pointData.points.remaining()
-//
-//        cpuPointBuffer.position(offset)
-//        cpuPointBuffer.put(pointData.points)
-//        cpuPointBuffer.rewind()
-//
-//        frameInfos[frameBufferCurrInd]?.cameraAnchor?.detach()
-//        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor)
-//        frameBufferCurrInd = (frameBufferCurrInd+1) % frameNum
-//    }
-//
-//    override val size: Int
-//        get() {
-//            var size: Int = 0
-//            for(fInfo in frameInfos){
-//                fInfo?.let {
-//                    size += it.numPoints
-//                }
-//            }
-//            return size
-//        }
-//
-//    override fun isEmpty(): Boolean {
-//        for (fInfo in frameInfos) {
-//            if (fInfo != null){
-//                return false
-//            }
-//        }
-//        return true
-//    }
-//
-//    class PointIter(private val fBuffer: PointFrameBuffer) : Iterator<Point> {
-//        private var frameInd = 0
-//        private var currInd = 0
-//        override fun hasNext(): Boolean {
-//            if(frameInd >= fBuffer.frameNum){
-//                return false
-//            }
-//            val fInfo: FrameInfo
-//            if (fBuffer.frameInfos[frameInd] == null) {
-//                return false
-//            } else {
-//                fInfo = fBuffer.frameInfos[frameInd]!!
-//            }
-//            return currInd < (fInfo.numPoints * PointCloudData.VALUES_PER_POINT - 4)
-//        }
-//
-//        override fun next(): Point {
-//            val x = fBuffer.cpuPointBuffer.get(currInd)
-//            val y = fBuffer.cpuPointBuffer.get(currInd+1)
-//            val z = fBuffer.cpuPointBuffer.get(currInd+2)
-//            val w = fBuffer.cpuPointBuffer.get(currInd+3)
-//            currInd += 4
-//            if (currInd >= (fBuffer.frameInfos[frameInd]!!.numPoints * PointCloudData.VALUES_PER_POINT - 4)) {
-//                frameInd++
-//            }
-//            return Point(floatArrayOf(x,y,z,w))
-//        }
-//    }
-//
-//    override fun iterator(): Iterator<Point> {
-//        return PointIter(this)
-//    }
-//
-//    override fun contains(element: Point): Boolean {
-//        TODO("Not yet implemented")
-//    }
-//
-//    override fun containsAll(elements: Collection<Point>): Boolean {
-//        TODO("Not yet implemented")
-//    }
-//}
-//
-//class PointCloudClusterRenderer(
-//    context: Context,
-//) {
-//
-//    companion object Info {
-//        const val TAG = "PointCloudClusterRenderer"
-//        const val VERT_SHADER_FILE = "point_cloud_cluster.vert"
-//        const val FRAG_SHADER_FILE = "point_cloud_cluster.frag"
-//    }
-//
-//    private var clusterBuffers: IntArray = IntArray(0)
-//
-//    private val program: Int
-//
-//    private val positionAttribute: Int
-//    //private val colorAttribute: Int
-//    private val modelViewProjectionUniform: Int
-//    private val pointSizeUniform: Int
-//    private val confidenceThresholdUniform: Int
-//    private val cameraPositionUniform: Int
-//    private val pointColorUniform: Int
-//
-//    init {
-//        val vertShader = createShader(context, VERT_SHADER_FILE, GLES20.GL_VERTEX_SHADER)
-//        val fragShader = createShader(context, FRAG_SHADER_FILE, GLES20.GL_FRAGMENT_SHADER)
-//
-//        program = GLES20.glCreateProgram()
-//        GLES20.glAttachShader(program, vertShader)
-//        GLES20.glAttachShader(program, fragShader)
-//        GLES20.glLinkProgram(program)
-//        GLES20.glUseProgram(program)
-//
-//        positionAttribute = GLES20.glGetAttribLocation(program, "a_Position")
-//        //colorAttribute = GLES20.glGetAttribLocation(program, "a_Color")
-//        modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
-//        pointSizeUniform = GLES20.glGetUniformLocation(program, "u_PointSize")
-//        confidenceThresholdUniform = GLES20.glGetUniformLocation(program, "u_ConfidenceThreshold")
-//        cameraPositionUniform = GLES20.glGetUniformLocation(program, "u_CameraPos")
-//        pointColorUniform = GLES20.glGetUniformLocation(program, "u_PointColor")
-//
-//        logIfGlError(TAG, "error on init")
-//    }
-//
-//    fun addPoints(clusterData: List<Cluster<Point>>){
-//        clusterBuffers = IntArray(clusterData.size)
-//        GLES20.glGenBuffers(clusterData.size, clusterBuffers, 0)
-//
-//        for (i in 0..clusterData.size) {
-//            val floatNum = clusterData[i].points.size*PointCloudData.VALUES_PER_POINT
-//            val buf = FloatBuffer.wrap(
-//                FloatArray(floatNum){
-//                    clusterData[it].points[it/4].data[it%4]
-//                })
-//            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, clusterBuffers[i])
-//            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, floatNum, buf, GLES20.GL_DYNAMIC_DRAW)
-//            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-//        }
-//    }
-//
-//    fun draw(camera: Camera, confidenceThreshold: Float, pointSize: Float){
-//        val projectionMatrix = FloatArray(16)
-//        val viewMatrix = FloatArray(16)
-//        camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
-//        camera.getViewMatrix(viewMatrix, 0)
-//
-//        val modelMatrix = FloatArray(16)
-//        val modelView = FloatArray(16)
-//        val modelViewProjection = FloatArray(16)
-//
-//
-//        logIfGlError(TAG, "render before loop")
-//
-//        logIfGlError(TAG, "render end")
-//    }
-//}
+class PointFrameBuffer(
+    private val frameNum: Int,
+    private val maxFramePointsNum: Int
+) : Collection<Point> {
+    val clusterBuffer: FloatBuffer = FloatBuffer.allocate(frameNum * maxFramePointsNum * PointCloudData.VALUES_PER_POINT)
+    val frameInfos: Array<FrameInfo?> = Array(frameNum) { null }
+    private var frameBufferCurrInd: Int = 0
+
+    // can't be 0 points
+    fun addPoints(pointData: PointCloudData){
+        val offset = maxFramePointsNum * frameBufferCurrInd
+        val pointNum = pointData.points.remaining()
+
+        clusterBuffer.position(offset)
+        clusterBuffer.put(pointData.points)
+        clusterBuffer.rewind()
+
+        frameInfos[frameBufferCurrInd]?.cameraAnchor?.detach()
+        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor, pointData.cameraTransf)
+        frameBufferCurrInd = (frameBufferCurrInd+1) % frameNum
+    }
+
+    override val size: Int
+        get() {
+            var size: Int = 0
+            for(fInfo in frameInfos){
+                fInfo?.let {
+                    size += it.numPoints
+                }
+            }
+            return size
+        }
+
+    override fun isEmpty(): Boolean {
+        for (fInfo in frameInfos) {
+            if (fInfo != null){
+                return false
+            }
+        }
+        return true
+    }
+
+    class PointIter(private val fBuffer: PointFrameBuffer) : Iterator<Point> {
+        private var frameInd = 0
+        private var currInd = 0
+        override fun hasNext(): Boolean {
+            if(frameInd >= fBuffer.frameNum){
+                return false
+            }
+            val fInfo: FrameInfo
+            if (fBuffer.frameInfos[frameInd] == null) {
+                return false
+            } else {
+                fInfo = fBuffer.frameInfos[frameInd]!!
+            }
+            return currInd < (fInfo.numPoints * PointCloudData.VALUES_PER_POINT - 4)
+        }
+
+        override fun next(): Point {
+            val x = fBuffer.clusterBuffer.get(currInd)
+            val y = fBuffer.clusterBuffer.get(currInd+1)
+            val z = fBuffer.clusterBuffer.get(currInd+2)
+            val w = fBuffer.clusterBuffer.get(currInd+3)
+            currInd += 4
+            if (currInd >= (fBuffer.frameInfos[frameInd]!!.numPoints * PointCloudData.VALUES_PER_POINT - 4)) {
+                frameInd++
+            }
+            return Point(floatArrayOf(x,y,z,w))
+        }
+    }
+
+    override fun iterator(): Iterator<Point> {
+        return PointIter(this)
+    }
+
+    override fun contains(element: Point): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun containsAll(elements: Collection<Point>): Boolean {
+        TODO("Not yet implemented")
+    }
+}
+
+class PointCloudClusterRenderer(
+    context: Context,
+) {
+
+    companion object Info {
+        const val TAG = "PointCloudClusterRenderer"
+        const val VERT_SHADER_FILE = "point_cloud_cluster.vert"
+        const val FRAG_SHADER_FILE = "point_cloud_cluster.frag"
+    }
+
+    private var clusterBuffers: IntArray = IntArray(0)
+    private var clusterPointCount: IntArray = IntArray(0)
+    private var clusterCount: Int = 0
+
+    private val program: Int
+
+    private val positionAttribute: Int
+    //private val colorAttribute: Int
+    private val modelViewProjectionUniform: Int
+    private val pointSizeUniform: Int
+    private val confidenceThresholdUniform: Int
+    private val cameraPositionUniform: Int
+    private val clusterColorUniform: Int
+
+    init {
+        val vertShader = createShader(context, VERT_SHADER_FILE, GLES20.GL_VERTEX_SHADER)
+        val fragShader = createShader(context, FRAG_SHADER_FILE, GLES20.GL_FRAGMENT_SHADER)
+
+        program = GLES20.glCreateProgram()
+        GLES20.glAttachShader(program, vertShader)
+        GLES20.glAttachShader(program, fragShader)
+        GLES20.glLinkProgram(program)
+        GLES20.glUseProgram(program)
+
+        positionAttribute = GLES20.glGetAttribLocation(program, "a_Position")
+        //colorAttribute = GLES20.glGetAttribLocation(program, "a_Color")
+        modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
+        pointSizeUniform = GLES20.glGetUniformLocation(program, "u_PointSize")
+        confidenceThresholdUniform = GLES20.glGetUniformLocation(program, "u_ConfidenceThreshold")
+        cameraPositionUniform = GLES20.glGetUniformLocation(program, "u_CameraPos")
+        clusterColorUniform = GLES20.glGetUniformLocation(program, "u_ClusterColor")
+
+        logIfGlError(TAG, "error on init")
+    }
+
+    fun setPoints(clusterData: List<Cluster<Point>>){
+        clusterCount = clusterData.size
+        if (clusterData.size > clusterBuffers.size) {
+            val oldSize = clusterBuffers.size
+            clusterBuffers = clusterBuffers.copyOf(clusterData.size)
+            clusterPointCount = clusterPointCount.copyOf(clusterData.size)
+            GLES20.glGenBuffers(clusterData.size - oldSize, clusterBuffers, oldSize)
+        }
+
+        for (i in 0..clusterData.size) {
+            val floatNum = clusterData[i].points.size*PointCloudData.VALUES_PER_POINT
+            val buf = FloatBuffer.wrap(
+                FloatArray(floatNum){
+                    clusterData[it].points[it/4].data[it%4]
+                })
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, clusterBuffers[i])
+            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, floatNum, buf, GLES20.GL_DYNAMIC_DRAW)
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+            clusterPointCount[i] = clusterData[i].points.size
+        }
+    }
+
+    fun draw(camera: Camera, confidenceThreshold: Float, pointSize: Float){
+        val projectionMatrix = FloatArray(16)
+        val viewMatrix = FloatArray(16)
+        camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
+        camera.getViewMatrix(viewMatrix, 0)
+
+        val modelMatrix = FloatArray(16)
+        Matrix.setIdentityM(modelMatrix, 0)
+        val modelView = FloatArray(16)
+        val modelViewProjection = FloatArray(16)
+
+        val colorArray = arrayOf(
+            FloatBuffer.wrap(floatArrayOf(1.0f,0.0f,0.0f,1.0f)),
+            FloatBuffer.wrap(floatArrayOf(0.0f,1.0f,0.0f,1.0f)),
+            FloatBuffer.wrap(floatArrayOf(0.0f,0.0f,1.0f,1.0f)),
+            FloatBuffer.wrap(floatArrayOf(0.0f,0.0f,0.0f,1.0f)),
+            FloatBuffer.wrap(floatArrayOf(1.0f,1.0f,1.0f,1.0f)),
+        )
+
+        for (i in 0..clusterCount){
+            GLES20.glUseProgram(program)
+            GLES20.glEnableVertexAttribArray(positionAttribute)
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, clusterBuffers[i])
+            GLES20.glVertexAttribPointer(
+                positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
+
+            Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
+            Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
+
+            GLES20.glUniformMatrix4fv(modelViewProjectionUniform, 1, false, modelViewProjection, 0)
+            GLES20.glUniform1f(pointSizeUniform, pointSize)
+            GLES20.glUniform1f(confidenceThresholdUniform, confidenceThreshold)
+            GLES20.glUniform4fv(clusterColorUniform, 1, colorArray[i%colorArray.size])
+
+            GLES20.glDrawArrays(GLES20.GL_POINTS, 0, clusterPointCount[i])
+
+            GLES20.glDisableVertexAttribArray(positionAttribute)
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+            logIfGlError(PointCloudRenderer.TAG, "render end loop")
+        }
+
+        logIfGlError(TAG, "render end")
+    }
+}
 
 class PointCloudRenderer(
     context: Context,
