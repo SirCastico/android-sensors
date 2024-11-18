@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import com.example.app.ui.theme.AppTheme
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
+import com.google.ar.core.Plane
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
@@ -43,7 +44,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
-    private lateinit var mRenderer: PointCloudClusterRenderer
+    private lateinit var mRenderer: PointCloudRenderer
     private val pointMax = 15000
     private var mClusterBuffer: ClusterFrameBuffer = ClusterFrameBuffer(1, pointMax)
     private var mClusterer: DBSCANClusterer<Point> = DBSCANClusterer(0.3, 300) // TODO
@@ -164,7 +165,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
-        mRenderer = PointCloudClusterRenderer(this)
+        mRenderer = PointCloudRenderer(this, 1, pointMax)
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
@@ -198,12 +199,12 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     mDepthTimestamp = newDepthTimestamp
 
                     PointCloudData.create(session, frame, pointMax)?.let { pointData ->
-                        // filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
+                        filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
                         //mClusterBuffer.addPoints(pointData)
-                        Log.d("A/D", "antes")
-                        val clusters = mClusterer.cluster(PointBuffer(pointData.points))
-                        Log.d("A/D", "depois")
-                        mRenderer.setPoints(clusters)
+                        //Log.d("A/D", "antes")
+                        //val clusters = mClusterer.cluster(PointBuffer(pointData.points))
+                        //Log.d("A/D", "depois")
+                        mRenderer.addPoints(pointData)
                     }
                 } else {
                     Log.d(TAG, "No new depth data")
