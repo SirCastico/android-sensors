@@ -1,9 +1,7 @@
 package com.example.app
 
-import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.GLES20
-import android.opengl.GLES32
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.util.Log
@@ -24,10 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.app.ui.theme.AppTheme
-import com.google.ar.core.Anchor
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
-import com.google.ar.core.Plane
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
@@ -49,7 +45,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private var mDepthTimestamp: Long = -1
     private lateinit var mRenderer: PointCloudClusterRenderer
     private val pointMax = 15000
-    private var mClusterBuffer: PointFrameBuffer = PointFrameBuffer(1, pointMax)
+    private var mClusterBuffer: ClusterFrameBuffer = ClusterFrameBuffer(1, pointMax)
     private var mClusterer: DBSCANClusterer<Point> = DBSCANClusterer(0.3, 300) // TODO
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -16,7 +16,7 @@ import java.nio.FloatBuffer
 data class FrameInfo(val numPoints: Int, val cameraAnchor: Anchor, val cameraTransf: FloatArray)
 
 
-class PointFrameBuffer(
+class ClusterFrameBuffer(
     private val frameNum: Int,
     private val maxFramePointsNum: Int
 ) : Collection<Point> {
@@ -58,7 +58,7 @@ class PointFrameBuffer(
         return true
     }
 
-    class PointIter(private val fBuffer: PointFrameBuffer) : Iterator<Point> {
+    class PointIter(private val fBuffer: ClusterFrameBuffer) : Iterator<Point> {
         private var frameInd = 0
         private var currInd = 0
         override fun hasNext(): Boolean {
@@ -71,7 +71,7 @@ class PointFrameBuffer(
             } else {
                 fInfo = fBuffer.frameInfos[frameInd]!!
             }
-            return currInd < (fInfo.numPoints * PointCloudData.VALUES_PER_POINT - 4)
+            return currInd <= (fInfo.numPoints * PointCloudData.VALUES_PER_POINT - 4)
         }
 
         override fun next(): Point {
@@ -80,8 +80,9 @@ class PointFrameBuffer(
             val z = fBuffer.clusterBuffer.get(currInd+2)
             val w = fBuffer.clusterBuffer.get(currInd+3)
             currInd += 4
-            if (currInd >= (fBuffer.frameInfos[frameInd]!!.numPoints * PointCloudData.VALUES_PER_POINT - 4)) {
+            if (currInd >= (fBuffer.frameInfos[frameInd]!!.numPoints * PointCloudData.VALUES_PER_POINT)) {
                 frameInd++
+                currInd = frameInd * fBuffer.maxFramePointsNum * PointCloudData.VALUES_PER_POINT
             }
             return Point(floatArrayOf(x,y,z,w))
         }
