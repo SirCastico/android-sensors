@@ -258,6 +258,8 @@ class PointCloudRenderer(
         camera.getViewMatrix(viewMatrix, 0)
 
         var modelMatrix = FloatArray(16)
+        Matrix.setIdentityM(modelMatrix, 0)
+
         val modelView = FloatArray(16)
         val modelViewProjection = FloatArray(16)
 
@@ -273,7 +275,7 @@ class PointCloudRenderer(
                 GLES20.glVertexAttribPointer(
                     positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
 
-                frameInfo.cameraAnchor.pose.toMatrix(modelMatrix,0)
+                //frameInfo.cameraAnchor.pose.toMatrix(modelMatrix,0)
                 //modelMatrix = frameInfo.cameraTransf
 
                 Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)

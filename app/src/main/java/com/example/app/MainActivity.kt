@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
-    private lateinit var mRenderer: SinglePointCloudRenderer
+    private lateinit var mRenderer: PointCloudRenderer
     private val pointMax = 15000
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,7 +166,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
-        mRenderer = SinglePointCloudRenderer(this, pointMax)
+        mRenderer = PointCloudRenderer(this, 1, pointMax)
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
@@ -201,7 +201,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
                     PointCloudData.create(session, frame, pointMax)?.let { pointData ->
                         // filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
-                        mRenderer.setPoints(pointData)
+                        mRenderer.addPoints(pointData)
                     }
                 } else {
                     Log.d(TAG, "No new depth data")
