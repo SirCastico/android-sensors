@@ -27,7 +27,7 @@ class ClusterFrameBuffer(
     // can't be 0 points
     fun addPoints(pointData: PointCloudData){
         val offset = maxFramePointsNum * frameBufferCurrInd
-        val pointNum = pointData.points.remaining()
+        val pointNum = pointData.points.remaining() / PointCloudData.VALUES_PER_POINT
 
         clusterBuffer.position(offset)
         clusterBuffer.put(pointData.points)
