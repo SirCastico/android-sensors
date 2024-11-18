@@ -2,6 +2,7 @@ package com.example.app
 
 import android.util.Log
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
+import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
 import com.google.ar.core.Anchor
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
@@ -31,8 +32,13 @@ class PointCloudData(
 
                 val intrinsics = frame.camera.textureIntrinsics
 
-                val points = convertDepthTo3dCameraSpacePointBuffer(
-                    depthImage, confidenceImage, intrinsics, pointLimit
+                //val points = convertDepthTo3dCameraSpacePointBuffer(
+                //    depthImage, confidenceImage, intrinsics, pointLimit
+                //)
+                val ctransf = FloatArray(16)
+                frame.camera.pose.toMatrix(ctransf,0)
+                val points = convertDepthTo3dWorldSpacePointBuffer(
+                    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
                 )
 
                 //filterUsingPlanes(points, session.getAllTrackables())
@@ -41,8 +47,6 @@ class PointCloudData(
                 confidenceImage.close()
 
                 val cameraAnchor = session.createAnchor(frame.camera.pose)
-                val ctransf = FloatArray(16)
-                frame.camera.pose.toMatrix(ctransf,0)
 
                 return PointCloudData(points, cameraAnchor, ctransf)
             } catch (e: NotYetAvailableException) {
