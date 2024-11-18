@@ -203,10 +203,11 @@ class PointCloudClusterRenderer(
             GLES20.glUniform4fv(clusterColorUniform, 1, colorArray[i%colorArray.size])
 
             GLES20.glDrawArrays(GLES20.GL_POINTS, 0, clusterPointCount[i])
+            Log.d(TAG, "Drawing cluster $i with $clusterPointCount points")
 
             GLES20.glDisableVertexAttribArray(positionAttribute)
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-            logIfGlError(PointCloudRenderer.TAG, "render end loop")
+            logIfGlError(TAG, "render end loop")
         }
 
         logIfGlError(TAG, "render end")
