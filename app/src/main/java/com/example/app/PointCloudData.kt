@@ -106,6 +106,7 @@ class PointBuffer(val buffer: FloatBuffer) : Collection<Point>{
         }
 
         override fun next(): Point {
+            Log.d("PointBuffer", "currInd: $currInd")
             val x = pBuffer.buffer.get(currInd)
             val y = pBuffer.buffer.get(currInd+1)
             val z = pBuffer.buffer.get(currInd+2)
