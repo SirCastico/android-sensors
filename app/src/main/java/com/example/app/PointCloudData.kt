@@ -78,12 +78,53 @@ class AABB{
     fun volume() : Float{
         return (bx - sx) * (by - sy) * (bz - sz)
     }
+
+    //fun getLineBuffer() : FloatBuffer {
+    //
+    //}
 }
 
 @JvmInline
 value class Point(val data: FloatArray) : Clusterable {
     override fun getPoint(): DoubleArray {
         return doubleArrayOf(data[0].toDouble(),data[1].toDouble(),data[2].toDouble())
+    }
+}
+
+class PointBuffer(val buffer: FloatBuffer) : Collection<Point>{
+    override fun isEmpty(): Boolean {
+        return buffer.remaining()==0
+    }
+
+    override val size: Int
+        get() = buffer.remaining() / PointCloudData.VALUES_PER_POINT
+
+    class PointIterator(val pBuffer: PointBuffer) : Iterator<Point>{
+        var currInd = 0
+        override fun hasNext(): Boolean {
+            return currInd < pBuffer.buffer.remaining() - 3
+        }
+
+        override fun next(): Point {
+            val x = pBuffer.buffer.get(currInd)
+            val y = pBuffer.buffer.get(currInd+1)
+            val z = pBuffer.buffer.get(currInd+2)
+            val w = pBuffer.buffer.get(currInd+3)
+
+            currInd+=4
+            return Point(floatArrayOf(x,y,z,w))
+        }
+    }
+    override fun iterator(): Iterator<Point> {
+        return PointIterator(this)
+    }
+
+    override fun contains(element: Point): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun containsAll(elements: Collection<Point>): Boolean {
+        TODO("Not yet implemented")
     }
 }
 

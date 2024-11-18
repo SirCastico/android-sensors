@@ -199,8 +199,10 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
                     PointCloudData.create(session, frame, pointMax)?.let { pointData ->
                         // filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
-                        mClusterBuffer.addPoints(pointData)
-                        val clusters = mClusterer.cluster(mClusterBuffer)
+                        //mClusterBuffer.addPoints(pointData)
+                        Log.d("A/D", "antes")
+                        val clusters = mClusterer.cluster(PointBuffer(pointData.points))
+                        Log.d("A/D", "depois")
                         mRenderer.setPoints(clusters)
                     }
                 } else {
