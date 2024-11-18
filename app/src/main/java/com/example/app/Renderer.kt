@@ -186,7 +186,7 @@ class PointCloudClusterRenderer(
             FloatBuffer.wrap(floatArrayOf(1.0f,1.0f,1.0f,1.0f)),
         )
 
-        for (i in 0..clusterCount){
+        for (i in 0..<clusterCount){
             GLES20.glUseProgram(program)
             GLES20.glEnableVertexAttribArray(positionAttribute)
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, clusterBuffers[i])
