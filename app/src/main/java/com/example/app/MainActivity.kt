@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
@@ -278,7 +279,7 @@ fun AppContent(main: MainActivity) {
                 )
             }
 
-            Row() {
+            Row(modifier = Modifier.offset(0.dp, -64.dp)) {
                 Button(onClick = { main.mState = MainState.RENDERER }, ) {
                     val text: String = if (main.mState == MainState.CAPTURER) "capturer"
                     else "renderer"
