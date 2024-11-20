@@ -280,7 +280,13 @@ fun AppContent(main: MainActivity) {
             }
 
             Row(modifier = Modifier.offset(0.dp, -64.dp)) {
-                Button(onClick = { main.mState = MainState.RENDERER }, ) {
+                val modeChanger = {
+                    if(main.mState == MainState.CAPTURER) main.mState = MainState.RENDERER
+                    else main.mState = MainState.CAPTURER
+
+                    main.setContent{ AppContent(main) }
+                }
+                Button(onClick = modeChanger, ) {
                     val text: String = if (main.mState == MainState.CAPTURER) "capturer"
                     else "renderer"
                     Text(
