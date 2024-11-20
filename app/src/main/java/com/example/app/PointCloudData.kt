@@ -1,5 +1,6 @@
 package com.example.app
 
+import android.opengl.GLES20
 import android.util.Log
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
 import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
@@ -12,7 +13,10 @@ import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import org.apache.commons.math3.ml.clustering.Cluster
 import org.apache.commons.math3.ml.clustering.Clusterable
+import java.io.Closeable
 import java.nio.FloatBuffer
+import java.util.Optional
+import java.util.OptionalInt
 import kotlin.math.abs
 
 
@@ -20,7 +24,7 @@ class PointCloudData(
     val points: FloatBuffer,
     val cameraAnchor: Anchor,
     val cameraTransf: FloatArray
-){
+) : Closeable{
     companion object Static{
         const val VALUES_PER_POINT = 4
         const val POINT_SIZE_BYTES = 4 * Float.SIZE_BYTES
@@ -32,16 +36,14 @@ class PointCloudData(
 
                 val intrinsics = frame.camera.textureIntrinsics
 
-                //val points = convertDepthTo3dCameraSpacePointBuffer(
-                //    depthImage, confidenceImage, intrinsics, pointLimit
-                //)
+                val points = convertDepthTo3dCameraSpacePointBuffer(
+                    depthImage, confidenceImage, intrinsics, pointLimit
+                )
                 val ctransf = FloatArray(16)
                 frame.camera.pose.toMatrix(ctransf,0)
-                val points = convertDepthTo3dWorldSpacePointBuffer(
-                    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
-                )
-
-                //filterUsingPlanes(points, session.getAllTrackables())
+                //val points = convertDepthTo3dWorldSpacePointBuffer(
+                //    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
+                //)
 
                 depthImage.close()
                 confidenceImage.close()
@@ -55,6 +57,39 @@ class PointCloudData(
             }
             return null
         }
+    }
+
+    override fun close() {
+        cameraAnchor.detach()
+    }
+}
+
+class GPUPointCloud(pointBuffer: FloatBuffer) : Closeable{
+    val gpuBuffer: Int
+    var pointNum: Int = pointBuffer.remaining() / PointCloudData.VALUES_PER_POINT
+
+    init {
+        val pbuffer = IntArray(1)
+        GLES20.glGenBuffers(1, pbuffer, 0)
+        gpuBuffer = pbuffer[0]
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gpuBuffer)
+
+        val pointBufferSize = PointCloudData.POINT_SIZE_BYTES * pointNum
+
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, pointBufferSize, pointBuffer, GLES20.GL_DYNAMIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    fun update(pointBuffer: FloatBuffer){
+        pointNum = pointBuffer.remaining() / PointCloudData.VALUES_PER_POINT
+
+        val pointBufferSize = PointCloudData.POINT_SIZE_BYTES * pointNum
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, pointBufferSize, pointBuffer, GLES20.GL_DYNAMIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    override fun close() {
+        GLES20.glDeleteBuffers(1, intArrayOf(gpuBuffer), 0)
     }
 }
 

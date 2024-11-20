@@ -9,12 +9,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -24,16 +29,15 @@ import androidx.core.content.ContextCompat
 import com.example.app.ui.theme.AppTheme
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
-import com.google.ar.core.Plane
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
+data class CurrentPointCloud(val data: PointCloudData, val gpuData: GPUPointCloud, var isSaved: Boolean = false)
 
 class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     val TAG = "MainActivity"
@@ -41,13 +45,18 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mInfo: String
     private var mUserRequestedInstall = true
     private var mSession: Session? = null
-    var mShouldWrite = AtomicBoolean(false)
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
-    private lateinit var mRenderer: PointCloudRenderer
+    private lateinit var mRenderer: PointCloudRendererEx
     private val pointMax = 15000
-    private var mClusterBuffer: ClusterFrameBuffer = ClusterFrameBuffer(1, pointMax)
-    private var mClusterer: DBSCANClusterer<Point> = DBSCANClusterer(0.3, 300) // TODO
+
+    private var mCurrentPointCloud: CurrentPointCloud? = null
+
+    var mState: MainState = MainState.CAPTURER
+    var mSavePointCloud: Boolean = false
+
+    private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
+    private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -153,19 +162,12 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         GLES20.glGetString(GLES20.GL_VERSION).also {
             Log.d(TAG, "Version: $it")
         }
-        //GLES20.glEnable(GLES32.GL_DEBUG_OUTPUT)
-        //GLES32.glDebugMessageCallback { source, type, id, severity, message ->
-        //    if (type == GLES32.GL_DEBUG_TYPE_ERROR) {
-        //        Log.e(PointCloudRenderer.TAG, "opengl error: $message")
-        //    } else {
-        //        Log.d(PointCloudRenderer.TAG, "opengl message: $message")
-        //    }
-        //}
+
         GLES20.glClearColor(0.1f,0.1f,0.1f,1.0f)
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
-        mRenderer = PointCloudRenderer(this, 1, pointMax)
+        mRenderer = PointCloudRendererEx(this)
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
@@ -181,37 +183,72 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             val frame = session.update()
             val camera = frame.getCamera()
 
-            if (camera.getTrackingState() != TrackingState.TRACKING) {
-                Log.d(TAG, "camera not tracking")
-            } else {
-                var containsNewDepthData: Boolean
-                var newDepthTimestamp: Long = -1
-                try {
-                    frame.acquireRawDepthImage16Bits().use { depthImage ->
-                        containsNewDepthData = mDepthTimestamp != depthImage.timestamp
-                        newDepthTimestamp = depthImage.timestamp
-                    }
-                } catch (e: NotYetAvailableException) {
-                    // This is normal at the beginning of session, where depth hasn't been estimated yet.
-                    containsNewDepthData = false
-                }
-                if (containsNewDepthData){
-                    mDepthTimestamp = newDepthTimestamp
-
-                    PointCloudData.create(session, frame, pointMax)?.let { pointData ->
-                        filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
-                        //mClusterBuffer.addPoints(pointData)
-                        //Log.d("A/D", "antes")
-                        //val clusters = mClusterer.cluster(PointBuffer(pointData.points))
-                        //Log.d("A/D", "depois")
-                        mRenderer.addPoints(pointData)
-                    }
+            if (mState == MainState.CAPTURER){
+                if (camera.getTrackingState() != TrackingState.TRACKING) {
+                    Log.d(TAG, "camera not tracking")
                 } else {
-                    Log.d(TAG, "No new depth data")
+                    var containsNewDepthData: Boolean
+                    var newDepthTimestamp: Long = -1
+                    try {
+                        frame.acquireRawDepthImage16Bits().use { depthImage ->
+                            containsNewDepthData = mDepthTimestamp != depthImage.timestamp
+                            newDepthTimestamp = depthImage.timestamp
+                        }
+                    } catch (e: NotYetAvailableException) {
+                        // This is normal at the beginning of session, where depth hasn't been estimated yet.
+                        containsNewDepthData = false
+                    }
+                    if (containsNewDepthData){
+                        mDepthTimestamp = newDepthTimestamp
+
+                        PointCloudData.create(session, frame, pointMax)?.let { pointData ->
+                            //filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
+                            mCurrentPointCloud?.let {
+                                if(!it.isSaved){
+                                    it.data.close()
+                                    it.gpuData.close()
+                                }
+                            }
+                            mCurrentPointCloud =
+                                CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
+                        }
+                    } else {
+                        Log.d(TAG, "No new depth data")
+                    }
+                }
+
+                mCurrentPointCloud?.let{ pointCloud ->
+                    if(mSavePointCloud){
+                        mPointCloudList.add(pointCloud.data)
+                        mGPUPointCloudList.add(pointCloud.gpuData)
+                        mSavePointCloud = false
+                        pointCloud.isSaved = true
+                    }
+                    val modelMat = FloatArray(16)
+                    pointCloud.data.cameraAnchor.pose.toMatrix(modelMat,0)
+                    mRenderer.draw(
+                        pointCloud.gpuData.gpuBuffer,
+                        pointCloud.gpuData.pointNum,
+                        modelMat,
+                        camera,
+                        0.3f,
+                        5.0f
+                    )
+                }
+            } else {
+                for (i in mPointCloudList.indices){
+                    val modelMat = FloatArray(16)
+                    mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
+                    mRenderer.draw(
+                        mGPUPointCloudList[i].gpuBuffer,
+                        mGPUPointCloudList[i].pointNum,
+                        modelMat,
+                        camera,
+                        0.3f,
+                        5.0f
+                    )
                 }
             }
-
-            mRenderer.draw(camera, 0.3f, 5.0f)
         }
 
     }
@@ -221,28 +258,52 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 @Composable
 fun AppContent(main: MainActivity) {
     AppTheme {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // GLSurfaceView takes the full screen
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    GLSurfaceView(context).apply {
-                        setEGLContextClientVersion(3)
-                        setPreserveEGLContextOnPause(true)
-                        setRenderer(main)
-                        setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY)
-                        setWillNotDraw(false)
-                        setOnClickListener {
-                            main.mShouldWrite.set(true)
-                            Log.d(main.TAG, "clicked")
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1.0f)) {
+                // GLSurfaceView takes the full screen
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { context ->
+                        GLSurfaceView(context).apply {
+                            setEGLContextClientVersion(3)
+                            setPreserveEGLContextOnPause(true)
+                            setRenderer(main)
+                            setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY)
+                            setWillNotDraw(false)
                         }
                     }
+                )
+            }
+
+            Row() {
+                Button(onClick = { main.mState = MainState.RENDERER }, ) {
+                    val text: String = if (main.mState == MainState.CAPTURER) "capturer"
+                    else "renderer"
+                    Text(
+                        text = text,
+                        color = Color.White
+                    )
                 }
-            )
+
+                if(main.mState == MainState.CAPTURER){
+                    Button(onClick = { main.mSavePointCloud = true }, ) {
+                        Text(
+                            text = "save point cloud",
+                            color = Color.White
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
+enum class MainState{
+    CAPTURER, RENDERER
+}
 
 @Composable
 fun TextAppContent(info: String){
