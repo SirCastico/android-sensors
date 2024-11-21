@@ -76,7 +76,7 @@ class PointCloudData(
             pModel[3] = 1.0f
             Matrix.multiplyMV(pWorld,0,modelMat,0,pModel,0)
 
-            fileOut.write("${pModel[0]} ${pModel[1]} ${pModel[2]} ${pModel[3]}\n".toByteArray())
+            fileOut.write("${pWorld[0]} ${pWorld[1]} ${pWorld[2]} ${pWorld[3]}\n".toByteArray())
         }
 
     }
