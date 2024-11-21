@@ -20,6 +20,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -280,14 +284,19 @@ fun AppContent(main: MainActivity) {
             }
 
             Row(modifier = Modifier.offset(0.dp, -64.dp)) {
+                var uiMode by remember {mutableStateOf(main.mState)}
                 val modeChanger = {
-                    if(main.mState == MainState.CAPTURER) main.mState = MainState.RENDERER
-                    else main.mState = MainState.CAPTURER
-
-                    main.setContent{ AppContent(main) }
+                    if(uiMode == MainState.CAPTURER){
+                        main.mState = MainState.RENDERER
+                        uiMode = MainState.RENDERER
+                    }
+                    else {
+                        main.mState = MainState.CAPTURER
+                        uiMode = MainState.CAPTURER
+                    }
                 }
                 Button(onClick = modeChanger, ) {
-                    val text: String = if (main.mState == MainState.CAPTURER) "capturer"
+                    val text: String = if (uiMode == MainState.CAPTURER) "capturer"
                     else "renderer"
                     Text(
                         text = text,
@@ -295,7 +304,7 @@ fun AppContent(main: MainActivity) {
                     )
                 }
 
-                if(main.mState == MainState.CAPTURER){
+                if(uiMode == MainState.CAPTURER){
                     Button(onClick = { main.mSavePointCloud = true }, ) {
                         Text(
                             text = "save point cloud",
