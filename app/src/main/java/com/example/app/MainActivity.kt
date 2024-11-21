@@ -250,6 +250,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                             pc.serializeToFile(file)
                         }
                     }
+                    mSerialize = false
                 }
                 for (i in mPointCloudList.indices){
                     val modelMat = FloatArray(16)
