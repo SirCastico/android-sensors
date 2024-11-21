@@ -1,6 +1,7 @@
 package com.example.app
 
 import android.opengl.GLES20
+import android.opengl.Matrix
 import android.util.Log
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
 import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
@@ -14,6 +15,7 @@ import com.google.ar.core.exceptions.NotYetAvailableException
 import org.apache.commons.math3.ml.clustering.Cluster
 import org.apache.commons.math3.ml.clustering.Clusterable
 import java.io.Closeable
+import java.io.FileOutputStream
 import java.nio.FloatBuffer
 import java.util.Optional
 import java.util.OptionalInt
@@ -61,6 +63,21 @@ class PointCloudData(
 
     override fun close() {
         cameraAnchor.detach()
+    }
+
+    fun serializeToFile(fileOut: FileOutputStream) {
+        val modelMat = FloatArray(16)
+        cameraAnchor.pose.toMatrix(modelMat,0)
+
+        while (points.hasRemaining()){
+            val pModel = FloatArray(4)
+            val pWorld = FloatArray(4)
+            points.get(pModel)
+            Matrix.multiplyMV(pWorld,0,modelMat,0,pModel,0)
+
+            fileOut.write("${pModel[0]} ${pModel[1]} ${pModel[2]} ${pModel[3]}\n".toByteArray())
+        }
+
     }
 }
 
@@ -221,19 +238,3 @@ fun filterUsingPlanes(points: FloatBuffer, allPlanes: Collection<Plane>) {
     Log.d("PlaneFilterer", "filtered $filteredPoints points")
 }
 
-fun getDepthBuffer(frame: Frame): FloatBuffer? {
-    try {
-        val depthImage = frame.acquireRawDepthImage16Bits()
-        val confidenceImage = frame.acquireRawDepthConfidenceImage()
-
-
-
-        depthImage.close()
-        confidenceImage.close()
-
-    } catch (e: NotYetAvailableException) {
-        // This normally means that depth data is not available yet. This is normal so we will not
-        // spam the logcat with this.
-    }
-    return null
-}

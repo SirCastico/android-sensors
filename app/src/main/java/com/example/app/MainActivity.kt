@@ -1,5 +1,6 @@
 package com.example.app
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
@@ -59,6 +60,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
     var mState: MainState = MainState.CAPTURER
     var mSavePointCloud: Boolean = false
+    var mSerialize: Boolean = false
 
     private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
@@ -241,6 +243,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     )
                 }
             } else {
+                if(mSerialize){
+                    openFileOutput("data", Context.MODE_PRIVATE).use { file ->
+                        Log.d(TAG, "starting file write")
+                        for (pc in mPointCloudList){
+                            pc.serializeToFile(file)
+                        }
+                    }
+                }
                 for (i in mPointCloudList.indices){
                     val modelMat = FloatArray(16)
                     mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
@@ -308,6 +318,13 @@ fun AppContent(main: MainActivity) {
                     Button(onClick = { main.mSavePointCloud = true }, ) {
                         Text(
                             text = "save point cloud",
+                            color = Color.White
+                        )
+                    }
+                } else {
+                    Button(onClick = { main.mSerialize = true }, ) {
+                        Text(
+                            text = "serialize",
                             color = Color.White
                         )
                     }
