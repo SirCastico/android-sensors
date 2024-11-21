@@ -73,6 +73,7 @@ class PointCloudData(
             val pModel = FloatArray(4)
             val pWorld = FloatArray(4)
             points.get(pModel)
+            pModel[3] = 1.0f
             Matrix.multiplyMV(pWorld,0,modelMat,0,pModel,0)
 
             fileOut.write("${pModel[0]} ${pModel[1]} ${pModel[2]} ${pModel[3]}\n".toByteArray())
