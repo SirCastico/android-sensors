@@ -84,6 +84,7 @@ public final class PointCloudHelper {
         float[] pointCamera = new float[4];
         float[] pointWorld = new float[4];
 
+        int numPoints = 0;
         for (int y = 0; y < depthHeight; y += step) {
             for (int x = 0; x < depthWidth; x += step) {
                 // Depth images are tightly packed, so it's OK to not use row and pixel strides.
@@ -114,10 +115,12 @@ public final class PointCloudHelper {
                 points.put(pointWorld[1]);
                 points.put(pointWorld[2]);
                 points.put(confidenceNormalized);
+                numPoints++;
             }
         }
 
         points.rewind();
+        points.limit(numPoints*4);
 
         return points;
     }
@@ -153,6 +156,7 @@ public final class PointCloudHelper {
                 FloatBuffer.allocate(
                         depthWidth / step * depthHeight / step * POSITION_FLOATS_PER_POINT);
 
+        int numPoints = 0;
         for (int y = 0; y < depthHeight; y += step) {
             for (int x = 0; x < depthWidth; x += step) {
                 // Depth images are tightly packed, so it's OK to not use row and pixel strides.
@@ -176,10 +180,12 @@ public final class PointCloudHelper {
                 points.put(depthMeters * (cy - y) / fy); // Y.
                 points.put(-depthMeters); // Z.
                 points.put(confidenceNormalized);
+                numPoints++;
             }
         }
 
         points.rewind();
+        points.limit(numPoints*4);
 
         return points;
     }
