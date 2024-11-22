@@ -294,7 +294,7 @@ fun AppContent(main: MainActivity) {
                 )
             }
 
-            Row(modifier = Modifier.offset(0.dp, -64.dp)) {
+            Row(modifier = Modifier.offset(0.dp, (-64).dp)) {
                 var uiMode by remember {mutableStateOf(main.mState)}
                 val modeChanger = {
                     if(uiMode == MainState.CAPTURER){
