@@ -286,9 +286,18 @@ public final class PointCloudHelper {
                 }
             }
         }
-        Log.d("PointGen", String.format("ignored %d and filtered %d points", numberOfZeroDepth, filteredPoints));
 
         points.rewind();
+
+        Log.d(
+            "PointGen",
+            String.format(
+                    "ignored %d and filtered %d points. total %d",
+                    numberOfZeroDepth,
+                    filteredPoints,
+                    points.remaining()/4
+            )
+        );
 
         return points;
     }
