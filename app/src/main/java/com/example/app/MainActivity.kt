@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.opengl.Matrix
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -187,6 +188,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     override fun onDrawFrame(unused: GL10) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         mSession?.let {session ->
+            Log.d(TAG, "anchor num: ${session.allAnchors.size}")
             mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
             val camera = frame.getCamera()
@@ -256,7 +258,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                 }
                 for (i in mPointCloudList.indices){
                     val modelMat = FloatArray(16)
-                    mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
+                    Matrix.setIdentityM(modelMat, 0)
+                    //mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
                     mRenderer.draw(
                         mGPUPointCloudList[i].gpuBuffer,
                         mGPUPointCloudList[i].pointNum,

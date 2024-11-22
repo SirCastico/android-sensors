@@ -45,13 +45,14 @@ class PointCloudData(
                 //val points = convertDepthTo3dCameraSpacePointBuffer(
                 //    depthImage, confidenceImage, intrinsics, pointLimit,
                 //)
-                val points = convertDepthTo3dCameraSpacePointBufferFiltered(
-                    depthImage, confidenceImage, intrinsics, pointLimit,
-                    ctransf, session.getAllTrackables(Plane::class.java)
-                )
-                //val points = convertDepthTo3dWorldSpacePointBuffer(
-                //    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
+                //val points = convertDepthTo3dCameraSpacePointBufferFiltered(
+                //    depthImage, confidenceImage, intrinsics, pointLimit,
+                //    ctransf, session.getAllTrackables(Plane::class.java)
                 //)
+                val points = convertDepthTo3dWorldSpacePointBuffer(
+                    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
+                )
+                filterUsingPlanes(points, session.getAllTrackables(Plane::class.java))
 
                 depthImage.close()
                 confidenceImage.close()

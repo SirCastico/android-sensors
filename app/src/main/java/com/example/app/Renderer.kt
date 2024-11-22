@@ -378,8 +378,6 @@ class PointCloudRendererEx(
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
         camera.getViewMatrix(viewMatrix, 0)
 
-        //Matrix.setIdentityM(modelMatrix, 0)
-
         val modelView = FloatArray(16)
         val modelViewProjection = FloatArray(16)
 
