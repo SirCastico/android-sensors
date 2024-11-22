@@ -4,6 +4,7 @@ import android.opengl.GLES20
 import android.opengl.Matrix
 import android.util.Log
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
+import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBufferFiltered
 import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
 import com.google.ar.core.Anchor
 import com.google.ar.core.Frame
@@ -38,11 +39,13 @@ class PointCloudData(
 
                 val intrinsics = frame.camera.textureIntrinsics
 
-                val points = convertDepthTo3dCameraSpacePointBuffer(
-                    depthImage, confidenceImage, intrinsics, pointLimit
-                )
                 val ctransf = FloatArray(16)
                 frame.camera.pose.toMatrix(ctransf,0)
+
+                val points = convertDepthTo3dCameraSpacePointBufferFiltered(
+                    depthImage, confidenceImage, intrinsics, pointLimit,
+                    ctransf, session.getAllTrackables(Plane::class.java)
+                )
                 //val points = convertDepthTo3dWorldSpacePointBuffer(
                 //    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
                 //)

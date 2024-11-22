@@ -18,6 +18,8 @@
 
 package com.example.app;
 
+import static java.lang.Math.abs;
+
 import android.media.Image;
 import android.media.Image.Plane;
 import android.opengl.Matrix;
@@ -25,10 +27,14 @@ import android.opengl.Matrix;
 import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Coordinates2d;
 import com.google.ar.core.Frame;
+import com.google.ar.core.Pose;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
 
 public final class PointCloudHelper {
 
@@ -168,6 +174,107 @@ public final class PointCloudHelper {
                 points.put(depthMeters * (cy - y) / fy); // Y.
                 points.put(-depthMeters); // Z.
                 points.put(confidenceNormalized);
+            }
+        }
+
+        points.rewind();
+
+        return points;
+    }
+
+    public static FloatBuffer convertDepthTo3dCameraSpacePointBufferFiltered(
+            Image depth, Image confidence, CameraIntrinsics cameraTextureIntrinsics, int pointLimit,
+            float[] transform, Collection<com.google.ar.core.Plane> planes) {
+        Plane depthImagePlane = depth.getPlanes()[0];
+        // Set the endianess to ensure we extract depth data in the correct byte order.
+        ShortBuffer depthBuffer =
+                depthImagePlane.getBuffer().order(ByteOrder.nativeOrder()).asShortBuffer();
+
+        Plane confidenceImagePlane = confidence.getPlanes()[0];
+        ByteBuffer confidenceBuffer = confidenceImagePlane.getBuffer().order(ByteOrder.nativeOrder());
+
+        // To transform 2D depth pixels into 3D points we retrieve the intrinsic camera parameters
+        // corresponding to the depth image. See more information about the depth values at
+        // https://developers.google.com/ar/develop/java/depth/overview#understand-depth-values.
+        int[] intrinsicsDimensions = cameraTextureIntrinsics.getImageDimensions();
+        int depthWidth = depth.getWidth();
+        int depthHeight = depth.getHeight();
+        float fx = cameraTextureIntrinsics.getFocalLength()[0] * depthWidth / intrinsicsDimensions[0];
+        float fy = cameraTextureIntrinsics.getFocalLength()[1] * depthHeight / intrinsicsDimensions[1];
+        float cx =
+                cameraTextureIntrinsics.getPrincipalPoint()[0] * depthWidth / intrinsicsDimensions[0];
+        float cy =
+                cameraTextureIntrinsics.getPrincipalPoint()[1] * depthHeight / intrinsicsDimensions[1];
+
+        // Allocate the destination point buffer. If the number of depth pixels is larger than
+        // `pointLimit` we do uniform image subsampling. Alternatively we could reduce the number of
+        // points based on depth confidence at this stage.
+        int step = calculateImageSubsamplingStep(depthWidth, depthHeight, pointLimit);
+        FloatBuffer points =
+                FloatBuffer.allocate(
+                        depthWidth / step * depthHeight / step * POSITION_FLOATS_PER_POINT);
+
+        float[] pWorld = new float[4];
+        float[] pModel = new float[4];
+        ArrayList<Pose> planePoses = new ArrayList<>();
+        ArrayList<float[]> planeNormals = new ArrayList<>();
+
+        for(com.google.ar.core.Plane plane : planes){
+            float[] normal = new float[4];
+            plane.getCenterPose().getTransformedAxis(1,1.0f,normal,0);
+            planePoses.add(plane.getCenterPose());
+            planeNormals.add(normal);
+        }
+
+        for (int y = 0; y < depthHeight; y += step) {
+            for (int x = 0; x < depthWidth; x += step) {
+                // Depth images are tightly packed, so it's OK to not use row and pixel strides.
+                int depthMillimeters = depthBuffer.get(y * depthWidth + x); // Depth image pixels are in mm.
+                if (depthMillimeters == 0) {
+                    // A pixel that has a value of zero has a missing depth estimate at this location.
+                    continue;
+                }
+
+                float depthMeters = depthMillimeters / 1000.0f;
+
+                // Depth confidence value for this pixel, stored as an unsigned byte in range [0, 255].
+                byte confidencePixelValue =
+                        confidenceBuffer.get(
+                                y * confidenceImagePlane.getRowStride()
+                                        + x * confidenceImagePlane.getPixelStride());
+
+                float confidenceNormalized = ((float) (confidencePixelValue & 0xff)) / 255.0f;
+
+                float px = depthMeters * (x - cx) / fx; // X.
+                float py = depthMeters * (cy - y) / fy; // Y.
+                float pz = -depthMeters; // Z.
+                pModel[0] = px;
+                pModel[1] = py;
+                pModel[2] = pz;
+                pModel[3] = 1.0f;
+
+                Matrix.multiplyMV(pWorld,0,transform,0,pModel,0);
+
+                boolean isCloseToPlane = false;
+                for (int i = 0; i < planePoses.size(); i++) {
+                    Pose planePose = planePoses.get(i);
+                    float[] planeNormal = planeNormals.get(i);
+                    float distance = ((pModel[0] - planePose.tx()) * planeNormal[0] +
+                            (pModel[1] - planePose.ty()) * planeNormal[1] +
+                            (pModel[2] - planePose.tz()) + planeNormal[2]);
+
+                    if(abs(distance)<=0.03){
+                        isCloseToPlane = true;
+                        break;
+                    }
+                }
+
+                if(!isCloseToPlane){
+                    points.put(pModel[0]);
+                    points.put(pModel[1]);
+                    points.put(pModel[2]);
+                    points.put(confidenceNormalized);
+                }
             }
         }
 
