@@ -262,9 +262,9 @@ public final class PointCloudHelper {
                 for (int i = 0; i < planePoses.size(); i++) {
                     Pose planePose = planePoses.get(i);
                     float[] planeNormal = planeNormals.get(i);
-                    float distance = ((pModel[0] - planePose.tx()) * planeNormal[0] +
-                            (pModel[1] - planePose.ty()) * planeNormal[1] +
-                            (pModel[2] - planePose.tz()) + planeNormal[2]);
+                    float distance = ((pWorld[0] - planePose.tx()) * planeNormal[0] +
+                            (pWorld[1] - planePose.ty()) * planeNormal[1] +
+                            (pWorld[2] - planePose.tz()) + planeNormal[2]);
 
                     if(abs(distance)<=0.03){
                         isCloseToPlane = true;
@@ -273,9 +273,9 @@ public final class PointCloudHelper {
                 }
 
                 if(!isCloseToPlane){
-                    points.put(pModel[0]);
-                    points.put(pModel[1]);
-                    points.put(pModel[2]);
+                    points.put(px);
+                    points.put(py);
+                    points.put(pz);
                     points.put(confidenceNormalized);
                 } else {
                     filteredPoints++;
