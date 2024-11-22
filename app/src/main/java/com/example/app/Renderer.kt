@@ -13,7 +13,7 @@ import java.io.InputStreamReader
 import java.lang.RuntimeException
 import java.nio.FloatBuffer
 
-data class FrameInfo(val numPoints: Int, val cameraAnchor: Anchor, val cameraTransf: FloatArray)
+data class FrameInfo(val numPoints: Int, val cameraAnchor: Anchor)
 
 
 class ClusterFrameBuffer(
@@ -34,7 +34,7 @@ class ClusterFrameBuffer(
         clusterBuffer.rewind()
 
         frameInfos[frameBufferCurrInd]?.cameraAnchor?.detach()
-        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor, pointData.cameraTransf)
+        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor)
         frameBufferCurrInd = (frameBufferCurrInd+1) % frameNum
     }
 
@@ -281,7 +281,7 @@ class PointCloudRenderer(
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
 
         frameInfos[frameBufferCurrInd]?.cameraAnchor?.detach()
-        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor, pointData.cameraTransf)
+        frameInfos[frameBufferCurrInd] = FrameInfo(pointNum, pointData.cameraAnchor)
         frameBufferCurrInd = (frameBufferCurrInd+1) % frameNum
     }
 
@@ -402,173 +402,6 @@ class PointCloudRendererEx(
 
         GLES20.glDisableVertexAttribArray(positionAttribute)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-
-        logIfGlError(TAG, "render end")
-    }
-}
-
-class SinglePointCloudRenderer(
-    context: Context,
-    maxFramePointsNum: Int
-) {
-
-    companion object Info {
-        const val TAG = "SinglePointCloudRenderer"
-        const val VERT_SHADER_FILE = "point_cloud.vert"
-        const val FRAG_SHADER_FILE = "point_cloud.frag"
-    }
-
-    private val pointBuffer: Int
-    private var numPoints: Int = 0
-    private var cameraTransf: FloatArray = FloatArray(16)
-
-    private val program: Int
-
-    private val positionAttribute: Int
-    private val modelViewProjectionUniform: Int
-    private val pointSizeUniform: Int
-    private val confidenceThresholdUniform: Int
-    private val cameraPositionUniform: Int
-
-    init {
-
-        val pbuffer = IntArray(1)
-        GLES20.glGenBuffers(1, pbuffer, 0)
-        pointBuffer = pbuffer[0]
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
-
-        val pointBufferSize = PointCloudData.POINT_SIZE_BYTES * maxFramePointsNum
-
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, pointBufferSize, null, GLES20.GL_DYNAMIC_DRAW)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-
-        val vertShader = createShader(context, VERT_SHADER_FILE, GLES20.GL_VERTEX_SHADER)
-        val fragShader = createShader(context, FRAG_SHADER_FILE, GLES20.GL_FRAGMENT_SHADER)
-
-        program = GLES20.glCreateProgram()
-        GLES20.glAttachShader(program, vertShader)
-        GLES20.glAttachShader(program, fragShader)
-        GLES20.glLinkProgram(program)
-        GLES20.glUseProgram(program)
-
-        positionAttribute = GLES20.glGetAttribLocation(program, "a_Position")
-        modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
-        pointSizeUniform = GLES20.glGetUniformLocation(program, "u_PointSize")
-        confidenceThresholdUniform = GLES20.glGetUniformLocation(program, "u_ConfidenceThreshold")
-        cameraPositionUniform = GLES20.glGetUniformLocation(program, "u_CameraPos")
-
-        logIfGlError(TAG, "error on init")
-    }
-
-    fun setPoints(pointData: PointCloudData){
-        val byteNum = pointData.points.remaining() * Float.SIZE_BYTES
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
-        GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, byteNum, pointData.points)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-        numPoints = pointData.points.remaining() / PointCloudData.VALUES_PER_POINT
-        cameraTransf = pointData.cameraTransf.copyOf()
-    }
-
-    fun draw(camera: Camera, confidenceThreshold: Float, pointSize: Float){
-        val projectionMatrix = FloatArray(16)
-        val viewMatrix = FloatArray(16)
-        camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f)
-        camera.getViewMatrix(viewMatrix, 0)
-
-        //val modelMatrix = cameraTransf.copyOf()
-        val modelMatrix = FloatArray(16)
-        Matrix.setIdentityM(modelMatrix, 0)
-
-        val modelView = FloatArray(16)
-        val modelViewProjection = FloatArray(16)
-
-        logIfGlError(TAG, "render before loop")
-
-        GLES20.glUseProgram(program)
-        GLES20.glEnableVertexAttribArray(positionAttribute)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, pointBuffer)
-        GLES20.glVertexAttribPointer(
-            positionAttribute, 4, GLES20.GL_FLOAT, false, PointCloudData.POINT_SIZE_BYTES, 0)
-
-        Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
-        Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
-
-        GLES20.glUniformMatrix4fv(modelViewProjectionUniform, 1, false, modelViewProjection, 0)
-        GLES20.glUniform1f(pointSizeUniform, pointSize)
-        GLES20.glUniform1f(confidenceThresholdUniform, confidenceThreshold)
-
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, numPoints)
-
-        GLES20.glDisableVertexAttribArray(positionAttribute)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-
-        logIfGlError(TAG, "render end")
-    }
-}
-
-class DepthRenderer(
-    context: Context,
-    private val depthWidth: Int,
-    private val depthHeight: Int,
-) {
-
-    companion object Info {
-        const val TAG = "DepthRenderer"
-        const val VERT_SHADER_FILE = "depth.vert"
-        const val FRAG_SHADER_FILE = "depth.frag"
-    }
-
-    private val depthTex: Int
-
-    private val program: Int
-
-    init {
-
-        val dTexArr = IntArray(1)
-        GLES20.glGenTextures(1, dTexArr, 0)
-        depthTex = dTexArr[0]
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, depthTex)
-
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT)
-        //GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR)
-        //GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-
-        GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R32F, depthWidth, depthHeight,
-            0, GLES30.GL_RED, GLES20.GL_FLOAT, null)
-
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-
-        val vertShader = createShader(context, VERT_SHADER_FILE, GLES20.GL_VERTEX_SHADER)
-        val fragShader = createShader(context, FRAG_SHADER_FILE, GLES20.GL_FRAGMENT_SHADER)
-
-        program = GLES20.glCreateProgram()
-        GLES20.glAttachShader(program, vertShader)
-        GLES20.glAttachShader(program, fragShader)
-        GLES20.glLinkProgram(program)
-        GLES20.glUseProgram(program)
-
-        GLES20.glDeleteShader(vertShader)
-        GLES20.glDeleteShader(fragShader)
-
-        logIfGlError(TAG, "error on init")
-    }
-
-    fun setDepthTex(depthBuffer: FloatBuffer){
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, depthTex)
-        GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R32F, depthWidth, depthHeight,
-            0, GLES30.GL_RED, GLES20.GL_FLOAT, depthBuffer)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-    }
-
-    fun draw(){
-
-        GLES20.glUseProgram(program)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, depthTex)
-
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
 
         logIfGlError(TAG, "render end")
     }

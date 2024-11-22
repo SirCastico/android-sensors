@@ -236,8 +236,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         pointCloud.isSaved = true
                     }
                     val modelMat = FloatArray(16)
-                    Matrix.setIdentityM(modelMat, 0)
-                    //pointCloud.data.cameraAnchor.pose.toMatrix(modelMat,0)
+                    //Matrix.setIdentityM(modelMat, 0)
+                    pointCloud.data.cameraAnchor.pose.toMatrix(modelMat,0)
                     mRenderer.draw(
                         pointCloud.gpuData.gpuBuffer,
                         pointCloud.gpuData.pointNum,
@@ -259,8 +259,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                 }
                 for (i in mPointCloudList.indices){
                     val modelMat = FloatArray(16)
-                    Matrix.setIdentityM(modelMat, 0)
-                    //mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
+                    //Matrix.setIdentityM(modelMat, 0)
+                    mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
                     mRenderer.draw(
                         mGPUPointCloudList[i].gpuBuffer,
                         mGPUPointCloudList[i].pointNum,

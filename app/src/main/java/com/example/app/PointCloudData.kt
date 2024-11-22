@@ -25,8 +25,7 @@ import kotlin.math.abs
 
 class PointCloudData(
     val points: FloatBuffer,
-    val cameraAnchor: Anchor,
-    val cameraTransf: FloatArray
+    val cameraAnchor: Anchor
 ) : Closeable{
     companion object Static{
         const val VALUES_PER_POINT = 4
@@ -45,21 +44,21 @@ class PointCloudData(
                 //val points = convertDepthTo3dCameraSpacePointBuffer(
                 //    depthImage, confidenceImage, intrinsics, pointLimit,
                 //)
-                //val points = convertDepthTo3dCameraSpacePointBufferFiltered(
-                //    depthImage, confidenceImage, intrinsics, pointLimit,
-                //    ctransf, session.getAllTrackables(Plane::class.java)
-                //)
-                val points = convertDepthTo3dWorldSpacePointBuffer(
-                    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
+                val points = convertDepthTo3dCameraSpacePointBufferFiltered(
+                    depthImage, confidenceImage, intrinsics, pointLimit,
+                    ctransf, session.getAllTrackables(Plane::class.java)
                 )
-                filterUsingPlanes(points, session.getAllTrackables(Plane::class.java))
+                //val points = convertDepthTo3dWorldSpacePointBuffer(
+                //    depthImage, confidenceImage, intrinsics, pointLimit, ctransf
+                //)
+                //filterUsingPlanes(points, session.getAllTrackables(Plane::class.java))
 
                 depthImage.close()
                 confidenceImage.close()
 
                 val cameraAnchor = session.createAnchor(frame.camera.pose)
 
-                return PointCloudData(points, cameraAnchor, ctransf)
+                return PointCloudData(points, cameraAnchor)
             } catch (e: NotYetAvailableException) {
                 // This normally means that depth data is not available yet. This is normal so we will not
                 // spam the logcat with this.
@@ -74,8 +73,8 @@ class PointCloudData(
 
     fun serializeToFile(fileOut: FileOutputStream) {
         val modelMat = FloatArray(16)
-        //cameraAnchor.pose.toMatrix(modelMat,0)
-        Matrix.setIdentityM(modelMat,0)
+        cameraAnchor.pose.toMatrix(modelMat,0)
+        //Matrix.setIdentityM(modelMat,0)
 
         while (points.hasRemaining()){
             val pModel = FloatArray(4)
