@@ -45,7 +45,7 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.time.measureTime
 
-data class CurrentPointCloud(val data: PointCloudData, val gpuData: GPUPointCloud, var isSaved: Boolean = false)
+data class CurrentPointCloud(var data: PointCloudData, val gpuData: GPUPointCloud, var isSaved: Boolean = false)
 
 class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     val TAG = "MainActivity"
@@ -212,14 +212,18 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
                         val pcTimeTaken = measureTime {
                             PointCloudData.create(session, frame, pointMax)?.let { pointData ->
+                                if(mCurrentPointCloud==null){
+                                    mCurrentPointCloud =
+                                        CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
+                                }
                                 mCurrentPointCloud?.let {
                                     if(!it.isSaved){
                                         it.data.close()
-                                        it.gpuData.close()
                                     }
+                                    it.data = pointData
+                                    it.gpuData.update(pointData.points)
+                                    it.isSaved = false
                                 }
-                                mCurrentPointCloud =
-                                    CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
                             }
                         }
                         Log.d(TAG, "point gen time taken: $pcTimeTaken")
