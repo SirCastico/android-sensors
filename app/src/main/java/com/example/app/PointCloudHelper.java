@@ -275,7 +275,7 @@ public final class PointCloudHelper {
                     float[] planeNormal = planeNormals.get(i);
                     float distance = ((pWorld[0] - planePose.tx()) * planeNormal[0] +
                             (pWorld[1] - planePose.ty()) * planeNormal[1] +
-                            (pWorld[2] - planePose.tz()) + planeNormal[2]);
+                            (pWorld[2] - planePose.tz()) * planeNormal[2]);
 
                     if(abs(distance)<=0.03){
                         isCloseToPlane = true;

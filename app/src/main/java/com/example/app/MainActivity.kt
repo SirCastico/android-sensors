@@ -42,6 +42,7 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+import kotlin.time.measureTime
 
 data class CurrentPointCloud(val data: PointCloudData, val gpuData: GPUPointCloud, var isSaved: Boolean = false)
 
@@ -202,23 +203,24 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                             newDepthTimestamp = depthImage.timestamp
                         }
                     } catch (e: NotYetAvailableException) {
-                        // This is normal at the beginning of session, where depth hasn't been estimated yet.
                         containsNewDepthData = false
                     }
                     if (containsNewDepthData){
                         mDepthTimestamp = newDepthTimestamp
 
-                        PointCloudData.create(session, frame, pointMax)?.let { pointData ->
-                            //filterUsingPlanes(pointData.points, session.getAllTrackables(Plane::class.java))
-                            mCurrentPointCloud?.let {
-                                if(!it.isSaved){
-                                    it.data.close()
-                                    it.gpuData.close()
+                        val pcTimeTaken = measureTime {
+                            PointCloudData.create(session, frame, pointMax)?.let { pointData ->
+                                mCurrentPointCloud?.let {
+                                    if(!it.isSaved){
+                                        it.data.close()
+                                        it.gpuData.close()
+                                    }
                                 }
+                                mCurrentPointCloud =
+                                    CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
                             }
-                            mCurrentPointCloud =
-                                CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
                         }
+                        Log.d(TAG, "point gen time taken: $pcTimeTaken")
                     } else {
                         Log.d(TAG, "No new depth data")
                     }
