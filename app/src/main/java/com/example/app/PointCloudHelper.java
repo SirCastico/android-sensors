@@ -233,6 +233,7 @@ public final class PointCloudHelper {
 
         int numberOfZeroDepth = 0;
         int filteredPoints = 0;
+        int numPoints = 0;
         for (int y = 0; y < depthHeight; y += step) {
             for (int x = 0; x < depthWidth; x += step) {
                 // Depth images are tightly packed, so it's OK to not use row and pixel strides.
@@ -281,6 +282,7 @@ public final class PointCloudHelper {
                     points.put(py);
                     points.put(pz);
                     points.put(confidenceNormalized);
+                    numPoints++;
                 } else {
                     filteredPoints++;
                 }
@@ -288,6 +290,7 @@ public final class PointCloudHelper {
         }
 
         points.rewind();
+        points.limit(numPoints*4);
 
         Log.d(
             "PointGen",
