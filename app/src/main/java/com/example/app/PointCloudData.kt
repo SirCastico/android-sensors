@@ -74,7 +74,8 @@ class PointCloudData(
 
     fun serializeToFile(fileOut: FileOutputStream) {
         val modelMat = FloatArray(16)
-        cameraAnchor.pose.toMatrix(modelMat,0)
+        //cameraAnchor.pose.toMatrix(modelMat,0)
+        Matrix.setIdentityM(modelMat,0)
 
         while (points.hasRemaining()){
             val pModel = FloatArray(4)
