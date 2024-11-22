@@ -212,19 +212,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
                         val pcTimeTaken = measureTime {
                             PointCloudData.create(session, frame, pointMax)?.let { pointData ->
-                                if(mCurrentPointCloud==null){
-                                    mCurrentPointCloud =
-                                        CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
-                                } else {
-                                    mCurrentPointCloud?.let {
-                                        if(!it.isSaved){
-                                            it.data.close()
-                                        }
-                                        it.data = pointData
-                                        it.gpuData.update(pointData.points)
-                                        it.isSaved = false
+                                mCurrentPointCloud?.let {
+                                    if(!it.isSaved){
+                                        it.data.close()
+                                        it.gpuData.close()
                                     }
                                 }
+                                mCurrentPointCloud =
+                                    CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
                             }
                         }
                         Log.d(TAG, "point gen time taken: $pcTimeTaken")
