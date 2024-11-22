@@ -215,14 +215,15 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                                 if(mCurrentPointCloud==null){
                                     mCurrentPointCloud =
                                         CurrentPointCloud(pointData, GPUPointCloud(pointData.points), false)
-                                }
-                                mCurrentPointCloud?.let {
-                                    if(!it.isSaved){
-                                        it.data.close()
+                                } else {
+                                    mCurrentPointCloud?.let {
+                                        if(!it.isSaved){
+                                            it.data.close()
+                                        }
+                                        it.data = pointData
+                                        it.gpuData.update(pointData.points)
+                                        it.isSaved = false
                                     }
-                                    it.data = pointData
-                                    it.gpuData.update(pointData.points)
-                                    it.isSaved = false
                                 }
                             }
                         }
