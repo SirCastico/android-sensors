@@ -29,6 +29,7 @@ import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Coordinates2d;
 import com.google.ar.core.Frame;
 import com.google.ar.core.Pose;
+import com.google.ar.core.TrackingState;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -221,6 +222,9 @@ public final class PointCloudHelper {
         ArrayList<float[]> planeNormals = new ArrayList<>();
 
         for(com.google.ar.core.Plane plane : planes){
+            if ((plane.getTrackingState() != TrackingState.TRACKING) || (plane.getSubsumedBy() != null)) {
+                continue;
+            }
             float[] normal = new float[4];
             plane.getCenterPose().getTransformedAxis(1,1.0f,normal,0);
             planePoses.add(plane.getCenterPose());
