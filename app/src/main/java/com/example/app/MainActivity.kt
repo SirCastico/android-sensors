@@ -317,10 +317,10 @@ fun AppContent(main: MainActivity) {
                     }
                 }
                 Button(onClick = modeChanger, ) {
-                    val text: String = if (uiMode == MainState.CAPTURER) "capturer"
-                    else "renderer"
+                    val otherModeText: String = if (uiMode == MainState.CAPTURER) "renderer"
+                    else "capturer"
                     Text(
-                        text = text,
+                        text = otherModeText,
                         color = Color.White
                     )
                 }
