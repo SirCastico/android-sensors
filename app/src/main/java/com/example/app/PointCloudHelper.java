@@ -23,6 +23,7 @@ import static java.lang.Math.abs;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.opengl.Matrix;
+import android.util.Log;
 
 import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Coordinates2d;
@@ -226,12 +227,14 @@ public final class PointCloudHelper {
             planeNormals.add(normal);
         }
 
+        int numberOfZeroDepth = 0;
+        int filteredPoints = 0;
         for (int y = 0; y < depthHeight; y += step) {
             for (int x = 0; x < depthWidth; x += step) {
                 // Depth images are tightly packed, so it's OK to not use row and pixel strides.
                 int depthMillimeters = depthBuffer.get(y * depthWidth + x); // Depth image pixels are in mm.
                 if (depthMillimeters == 0) {
-                    // A pixel that has a value of zero has a missing depth estimate at this location.
+                    numberOfZeroDepth++;
                     continue;
                 }
 
@@ -274,9 +277,12 @@ public final class PointCloudHelper {
                     points.put(pModel[1]);
                     points.put(pModel[2]);
                     points.put(confidenceNormalized);
+                } else {
+                    filteredPoints++;
                 }
             }
         }
+        Log.d("PointGen", String.format("ignored %d and filtered %d points", numberOfZeroDepth, filteredPoints));
 
         points.rewind();
 
