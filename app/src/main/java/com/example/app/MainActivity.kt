@@ -67,6 +67,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
 
+    private val nativeCode: NativeCode = NativeCode()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -186,6 +188,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 
     override fun onDrawFrame(unused: GL10) {
+        Log.d("TEST", "val: ${nativeCode.getVal()}")
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         mSession?.let {session ->
             Log.d(TAG, "anchor num: ${session.allAnchors.size}")
