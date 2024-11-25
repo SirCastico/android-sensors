@@ -255,7 +255,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     )
                 }
             } else {
-                if (mAnalyzedPointCloud==null){
+                if (mAnalyzedPointCloud==null && mPointCloudList.size>0){
                     var size = 0
                     for(pc in mPointCloudList){
                         size += pc.points.remaining()
@@ -264,18 +264,27 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     val modelMat = FloatArray(16)
                     val pCamera = FloatArray(4)
                     val pWorld = FloatArray(4)
+                    var currSize = 0
                     for(pc in mPointCloudList){
-                        pc.points.get(pCamera)
-                        val confidence = pCamera[3]
-                        pCamera[3] = 1.0f
                         pc.cameraAnchor.pose.toMatrix(modelMat,0)
-                        Matrix.multiplyMV(pWorld,0,modelMat,0,pCamera,0)
-                        pcBuf.put(pWorld[0])
-                        pcBuf.put(pWorld[1])
-                        pcBuf.put(pWorld[2])
-                        pcBuf.put(confidence)
+                        while(pc.points.hasRemaining()){
+                            pc.points.get(pCamera)
+                            val confidence = pCamera[3]
+                            if(confidence < 1.0){
+                                continue
+                            }
+                            pCamera[3] = 1.0f
+                            Matrix.multiplyMV(pWorld,0,modelMat,0,pCamera,0)
+                            pcBuf.put(pWorld[0])
+                            pcBuf.put(pWorld[1])
+                            pcBuf.put(pWorld[2])
+                            pcBuf.put(confidence)
+                            currSize+=4
+                        }
+                        pc.points.rewind()
                     }
                     pcBuf.rewind()
+                    pcBuf.limit(currSize)
                     mAnalyzedPointCloud = pcBuf
                 }
                 mAnalyzedPointCloud?.let {
