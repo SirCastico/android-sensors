@@ -40,6 +40,8 @@ import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -258,7 +260,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     for(pc in mPointCloudList){
                         size += pc.points.remaining()
                     }
-                    val pcBuf = FloatBuffer.allocate(size)
+                    val pcBuf = ByteBuffer.allocateDirect(size*Float.SIZE_BYTES)
+                        .order(ByteOrder.nativeOrder()).asFloatBuffer()
                     val modelMat = FloatArray(16)
                     val pCamera = FloatArray(4)
                     val pWorld = FloatArray(4)
