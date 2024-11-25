@@ -40,7 +40,6 @@ import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
-import org.apache.commons.math3.ml.clustering.DBSCANClusterer
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -67,10 +66,9 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
     private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
-    private var mAnalyzedPointCloud: FloatBuffer? = null
+    private var mClusterAABBs: Array<AABB>? = null
 
     private val nativeCode: NativeCode = NativeCode()
-    private var mClusterer: DBSCANClusterer<Point> = DBSCANClusterer(0.007, 3)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -240,7 +238,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         mGPUPointCloudList.add(pointCloud.gpuData)
                         mSavePointCloud = false
                         pointCloud.isSaved = true
-                        mAnalyzedPointCloud=null
+                        mClusterAABBs=null
                     }
                     val modelMat = FloatArray(16)
                     //Matrix.setIdentityM(modelMat, 0)
@@ -255,7 +253,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     )
                 }
             } else {
-                if (mAnalyzedPointCloud==null && mPointCloudList.size>0){
+                if (mClusterAABBs==null && mPointCloudList.size>0){
                     var size = 0
                     for(pc in mPointCloudList){
                         size += pc.points.remaining()
@@ -264,7 +262,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     val modelMat = FloatArray(16)
                     val pCamera = FloatArray(4)
                     val pWorld = FloatArray(4)
-                    var currSize = 0
+                    var pointCount = 0
                     for(pc in mPointCloudList){
                         pc.cameraAnchor.pose.toMatrix(modelMat,0)
                         while(pc.points.hasRemaining()){
@@ -278,22 +276,18 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                             pcBuf.put(pWorld[0])
                             pcBuf.put(pWorld[1])
                             pcBuf.put(pWorld[2])
-                            pcBuf.put(confidence)
-                            currSize+=4
+                            //pcBuf.put(confidence)
+                            pointCount+=1
                         }
                         pc.points.rewind()
                     }
                     pcBuf.rewind()
-                    pcBuf.limit(currSize)
-                    mAnalyzedPointCloud = pcBuf
-                }
-                mAnalyzedPointCloud?.let {
-                    val pb = PointBuffer(it)
                     Log.d("A/D", "antes")
-                    val clusters = mClusterer.cluster(pb)
+                    mClusterAABBs = nativeCode.cluster(pcBuf,pointCount)
                     Log.d("A/D", "depois")
-                    val aabbs = calculateAABBs(clusters)
-                    for(aabb in aabbs){
+                }
+                mClusterAABBs?.let {
+                    for(aabb in it){
                         Log.d("ClusterAABB", "x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}")
                     }
                 }
