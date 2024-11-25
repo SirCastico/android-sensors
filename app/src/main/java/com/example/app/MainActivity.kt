@@ -41,6 +41,7 @@ import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer
+import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.time.measureTime
@@ -66,8 +67,10 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
     private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
+    private var mAnalyzedPointCloud: FloatBuffer? = null
 
     private val nativeCode: NativeCode = NativeCode()
+    private var mClusterer: DBSCANClusterer<Point> = DBSCANClusterer(0.007, 3)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -237,6 +240,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         mGPUPointCloudList.add(pointCloud.gpuData)
                         mSavePointCloud = false
                         pointCloud.isSaved = true
+                        mAnalyzedPointCloud=null
                     }
                     val modelMat = FloatArray(16)
                     //Matrix.setIdentityM(modelMat, 0)
@@ -251,6 +255,39 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     )
                 }
             } else {
+                if (mAnalyzedPointCloud==null){
+                    var size = 0
+                    for(pc in mPointCloudList){
+                        size += pc.points.remaining()
+                    }
+                    val pcBuf = FloatBuffer.allocate(size)
+                    val modelMat = FloatArray(16)
+                    val pCamera = FloatArray(4)
+                    val pWorld = FloatArray(4)
+                    for(pc in mPointCloudList){
+                        pc.points.get(pCamera)
+                        val confidence = pCamera[3]
+                        pCamera[3] = 1.0f
+                        pc.cameraAnchor.pose.toMatrix(modelMat,0)
+                        Matrix.multiplyMV(pWorld,0,modelMat,0,pCamera,0)
+                        pcBuf.put(pWorld[0])
+                        pcBuf.put(pWorld[1])
+                        pcBuf.put(pWorld[2])
+                        pcBuf.put(confidence)
+                    }
+                    pcBuf.rewind()
+                    mAnalyzedPointCloud = pcBuf
+                }
+                mAnalyzedPointCloud?.let {
+                    val pb = PointBuffer(it)
+                    Log.d("A/D", "antes")
+                    val clusters = mClusterer.cluster(pb)
+                    Log.d("A/D", "depois")
+                    val aabbs = calculateAABBs(clusters)
+                    for(aabb in aabbs){
+                        Log.d("ClusterAABB", "x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}")
+                    }
+                }
                 if(mSerialize){
                     openFileOutput("data", Context.MODE_PRIVATE).use { file ->
                         Log.d(TAG, "starting file write")
