@@ -70,7 +70,7 @@ auto sort_clusters(std::vector<std::vector<size_t>>& clusters)
 template<int n_cols, typename Adaptor>
 auto dbscan(const Adaptor& adapt, float eps, int min_pts)
 {
-    //eps *= eps;
+    eps *= eps;
     using namespace nanoflann;
     using  my_kd_tree_t = KDTreeSingleIndexAdaptor<L2_Simple_Adaptor<float, decltype(adapt)>, decltype(adapt), n_cols>;
 
