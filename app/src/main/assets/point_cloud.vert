@@ -12,9 +12,10 @@ float highBound = 5.0;
 float lowBound = 0.0;
 
 void main() {
-    float distanceToCamera = length(a_Position.xyz - u_CameraPos);
-    float clampedDistance = clamp(distanceToCamera, lowBound, highBound);
-    v_Color = vec4(vec3(highBound - clampedDistance + lowBound), 1.0);
+    //float distanceToCamera = length(a_Position.xyz - u_CameraPos);
+    //float clampedDistance = clamp(distanceToCamera, lowBound, highBound);
+    //v_Color = vec4(vec3(highBound - clampedDistance + lowBound), 1.0);
+    v_Color = vec4(1.0);
 
     gl_Position = u_ModelViewProjection * vec4(a_Position.xyz, 1.0);
 

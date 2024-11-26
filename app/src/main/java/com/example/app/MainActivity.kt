@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mPCRenderer: PointCloudRendererEx
     private lateinit var mLineRenderer: LineRenderer
     private val pointMax = 15000
-    private val mPointConfidence = 1.0
+    private val mPointConfidence = 0.98f
 
     private var mCurrentPointCloud: CurrentPointCloud? = null
 
@@ -253,7 +253,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         pointCloud.gpuData.pointNum,
                         modelMat,
                         camera,
-                        0.3f,
+                        mPointConfidence,
                         5.0f
                     )
                 }
@@ -325,7 +325,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         mGPUPointCloudList[i].pointNum,
                         modelMat,
                         camera,
-                        mPointConfidence.toFloat(),
+                        mPointConfidence,
                         5.0f
                     )
                 }
