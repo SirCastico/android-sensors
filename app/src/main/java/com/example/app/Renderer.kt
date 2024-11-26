@@ -258,7 +258,7 @@ class LineRenderer(
         GLES20.glEnableVertexAttribArray(positionAttribute)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gpuBuffer)
         GLES20.glVertexAttribPointer(
-            positionAttribute, 4, GLES20.GL_FLOAT, false, 4, 0)
+            positionAttribute, 4, GLES20.GL_FLOAT, false, AABB.LINE_BUFFER_VERT_FLOATS*Float.SIZE_BYTES, 0)
 
         Matrix.multiplyMM(modelView, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(modelViewProjection, 0, projectionMatrix, 0, modelView, 0)
