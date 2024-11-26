@@ -3,9 +3,7 @@ package com.example.app
 import android.opengl.GLES20
 import android.opengl.Matrix
 import android.util.Log
-import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBuffer
 import com.example.app.PointCloudHelper.convertDepthTo3dCameraSpacePointBufferFiltered
-import com.example.app.PointCloudHelper.convertDepthTo3dWorldSpacePointBuffer
 import com.google.ar.core.Anchor
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
@@ -18,8 +16,6 @@ import org.apache.commons.math3.ml.clustering.Clusterable
 import java.io.Closeable
 import java.io.FileOutputStream
 import java.nio.FloatBuffer
-import java.util.Optional
-import java.util.OptionalInt
 import kotlin.math.abs
 
 
@@ -120,6 +116,12 @@ class GPUPointCloud(pointBuffer: FloatBuffer) : Closeable{
 }
 
 class AABB{
+    companion object STATIC {
+        const val LINE_BUFFER_VERT_NUM = 24
+        const val LINE_BUFFER_VERT_FLOATS = 4
+        const val LINE_BUFFER_BYTE_NUM = LINE_BUFFER_VERT_NUM * LINE_BUFFER_VERT_FLOATS * Float.SIZE_BYTES
+
+    }
     var sx: Float = Float.MAX_VALUE
     var sy: Float = Float.MAX_VALUE
     var sz: Float = Float.MAX_VALUE
@@ -140,9 +142,94 @@ class AABB{
         return (bx - sx) * (by - sy) * (bz - sz)
     }
 
-    //fun getLineBuffer() : FloatBuffer {
-    //
-    //}
+    fun getLineBuffer() : FloatBuffer {
+        // y is up?
+        return FloatBuffer.wrap(floatArrayOf(
+            bx,by,bz,1.0f,
+            sx,by,bz,1.0f,
+
+            bx,by,bz,1.0f,
+            bx,sy,bz,1.0f,
+
+            bx,by,bz,1.0f,
+            bx,by,sz,1.0f,
+
+            sx,sy,bz,1.0f,
+            bx,sy,bz,1.0f,
+
+            sx,sy,bz,1.0f,
+            sx,by,bz,1.0f,
+
+            sx,sy,bz,1.0f,
+            sx,sy,sz,1.0f,
+
+            sx,by,sz,1.0f,
+            bx,by,sz,1.0f,
+
+            sx,by,sz,1.0f,
+            sx,sy,sz,1.0f,
+
+            sx,by,sz,1.0f,
+            sx,by,bz,1.0f,
+
+            bx,sy,sz,1.0f,
+            sx,sy,sz,1.0f,
+
+            bx,sy,sz,1.0f,
+            bx,by,sz,1.0f,
+
+            bx,sy,sz,1.0f,
+            bx,sy,bz,1.0f,
+        ))
+    }
+}
+
+class AABBGPUList(aabbs: List<AABB>) : Closeable{
+    val gpuBuffer: Int
+    var aabbNum: Int = aabbs.size
+
+    init {
+        val pbuffer = IntArray(1)
+        GLES20.glGenBuffers(1, pbuffer, 0)
+        gpuBuffer = pbuffer[0]
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gpuBuffer)
+
+        val bufferSize = AABB.LINE_BUFFER_BYTE_NUM * aabbNum
+
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, bufferSize, null, GLES20.GL_DYNAMIC_DRAW)
+
+        for(aabbInd in aabbs.indices){
+            GLES20.glBufferSubData(
+                GLES20.GL_ARRAY_BUFFER,
+                AABB.LINE_BUFFER_BYTE_NUM*aabbInd,
+                AABB.LINE_BUFFER_BYTE_NUM,
+                aabbs[aabbInd].getLineBuffer()
+            )
+        }
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    fun update(aabbs: List<AABB>){
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gpuBuffer)
+        if(aabbs.size>aabbNum){
+            aabbNum = aabbs.size
+            val bufferSize = AABB.LINE_BUFFER_BYTE_NUM * aabbNum
+            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, bufferSize, null, GLES20.GL_DYNAMIC_DRAW)
+        }
+        for(aabbInd in aabbs.indices){
+            GLES20.glBufferSubData(
+                GLES20.GL_ARRAY_BUFFER,
+                AABB.LINE_BUFFER_BYTE_NUM*aabbInd,
+                AABB.LINE_BUFFER_BYTE_NUM,
+                aabbs[aabbInd].getLineBuffer()
+            )
+        }
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    override fun close() {
+        GLES20.glDeleteBuffers(1, intArrayOf(gpuBuffer), 0)
+    }
 }
 
 @JvmInline

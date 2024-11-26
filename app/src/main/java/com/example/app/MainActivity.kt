@@ -42,7 +42,6 @@ import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.time.measureTime
@@ -57,7 +56,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private var mSession: Session? = null
     private lateinit var mDisplayRotationHelper: DisplayRotationHelper
     private var mDepthTimestamp: Long = -1
-    private lateinit var mRenderer: PointCloudRendererEx
+    private lateinit var mPCRenderer: PointCloudRendererEx
+    private lateinit var mLineRenderer: LineRenderer
     private val pointMax = 15000
 
     private var mCurrentPointCloud: CurrentPointCloud? = null
@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
     private var mClusterAABBs: Array<AABB>? = null
+    private var mClusterGPUAABBs: AABBGPUList? = null
 
     private val nativeCode: NativeCode = NativeCode()
 
@@ -181,7 +182,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         val texArr = IntArray(1)
         GLES20.glGenTextures(1, texArr, 0)
         mSession?.setCameraTextureName(texArr[0])
-        mRenderer = PointCloudRendererEx(this)
+        mPCRenderer = PointCloudRendererEx(this)
+        mLineRenderer = LineRenderer(this)
     }
 
     override fun onSurfaceChanged(unused: GL10, width: Int, height: Int) {
@@ -245,7 +247,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     val modelMat = FloatArray(16)
                     //Matrix.setIdentityM(modelMat, 0)
                     pointCloud.data.cameraAnchor.pose.toMatrix(modelMat,0)
-                    mRenderer.draw(
+                    mPCRenderer.draw(
                         pointCloud.gpuData.gpuBuffer,
                         pointCloud.gpuData.pointNum,
                         modelMat,
@@ -285,13 +287,17 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         pc.points.rewind()
                     }
                     pcBuf.rewind()
-                    Log.d("A/D", "antes")
+                    Log.d(TAG, "clustering")
                     mClusterAABBs = nativeCode.cluster(pcBuf,pointCount)
-                    Log.d("A/D", "depois")
-                }
-                mClusterAABBs?.let {
-                    for(aabb in it){
-                        Log.d("ClusterAABB", "x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}")
+                    Log.d(TAG, "finished clustering")
+                    mClusterAABBs?.let{
+                        if (mClusterGPUAABBs == null){
+                            mClusterGPUAABBs = AABBGPUList(it.asList())
+                        } else mClusterGPUAABBs?.update(it.asList())
+
+                        for(aabb in it){
+                            Log.d("ClusterAABB", "x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}")
+                        }
                     }
                 }
                 if(mSerialize){
@@ -307,7 +313,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     val modelMat = FloatArray(16)
                     //Matrix.setIdentityM(modelMat, 0)
                     mPointCloudList[i].cameraAnchor.pose.toMatrix(modelMat,0)
-                    mRenderer.draw(
+                    mPCRenderer.draw(
                         mGPUPointCloudList[i].gpuBuffer,
                         mGPUPointCloudList[i].pointNum,
                         modelMat,
@@ -315,6 +321,20 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         0.3f,
                         5.0f
                     )
+                }
+                mClusterGPUAABBs?.let{
+                    val modelMat = FloatArray(16)
+                    Matrix.setIdentityM(modelMat,0)
+                    for (i in 0..<it.aabbNum){
+                        mLineRenderer.draw(
+                            it.gpuBuffer,
+                            AABB.LINE_BUFFER_VERT_NUM,
+                            AABB.LINE_BUFFER_VERT_NUM*i,
+                            floatArrayOf(0.0f,1.0f,0.0f,1.0f),
+                            modelMat,
+                            camera
+                        )
+                    }
                 }
             }
         }
