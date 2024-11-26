@@ -60,6 +60,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mLineRenderer: LineRenderer
     private val pointMax = 15000
     private val mPointConfidence = 0.98f
+    private val mClusterEps = 0.007f
+    private val mClusterNPts = 3
 
     private var mCurrentPointCloud: CurrentPointCloud? = null
 
@@ -289,7 +291,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     }
                     pcBuf.rewind()
                     Log.d(TAG, "clustering")
-                    mClusterAABBs = nativeCode.cluster(pcBuf,pointCount)
+                    mClusterAABBs = nativeCode.cluster(pcBuf,pointCount,mClusterEps,mClusterNPts)
                     Log.d(TAG, "finished clustering")
                     mClusterAABBs?.let{
                         if (mClusterGPUAABBs == null){

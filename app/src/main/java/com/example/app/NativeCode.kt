@@ -14,5 +14,5 @@ class NativeCode{
     external fun getVal(): Int
 
     // 3d points, return buffers with cluster indexes associated with each point
-    external fun cluster(pointBuffer: FloatBuffer, count: Int): Array<AABB>?
+    external fun cluster(pointBuffer: FloatBuffer, count: Int, eps: Float, nPts: Int): Array<AABB>?
 }

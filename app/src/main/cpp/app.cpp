@@ -98,11 +98,11 @@ struct J_AABB{
 extern "C"
 JNIEXPORT jobjectArray JNICALL
 Java_com_example_app_NativeCode_cluster(JNIEnv *env, jobject thiz, jobject point_buffer,
-                                        jint count) {
+                                        jint count, jfloat eps, jint nPts) {
     point3 *p_buf = (point3*)env->GetDirectBufferAddress(point_buffer);
     if( p_buf == nullptr) return nullptr;
     auto p_span = std::span{p_buf, (size_t)count};
-    auto clusters = dbscan(p_span, 0.007, 3);
+    auto clusters = dbscan(p_span, eps, nPts);
 
     jobjectArray aabb_arr = env->NewObjectArray(
             (jsize)clusters.size(),
