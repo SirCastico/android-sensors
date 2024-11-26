@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mPCRenderer: PointCloudRendererEx
     private lateinit var mLineRenderer: LineRenderer
     private val pointMax = 15000
+    private val mPointConfidence = 1.0
 
     private var mCurrentPointCloud: CurrentPointCloud? = null
 
@@ -273,7 +274,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         while(pc.points.hasRemaining()){
                             pc.points.get(pCamera)
                             val confidence = pCamera[3]
-                            if(confidence < 1.0){
+                            if(confidence < mPointConfidence){
                                 continue
                             }
                             pCamera[3] = 1.0f
@@ -295,8 +296,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                             mClusterGPUAABBs = AABBGPUList(it.asList())
                         } else mClusterGPUAABBs?.update(it.asList())
 
-                        for(aabb in it){
-                            Log.d("ClusterAABB", "x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}")
+                        for(aabbInd in it.indices){
+                            val aabb = it[aabbInd]
+                            Log.d(
+                                "ClusterAABB",
+                                "$aabbInd :: max:${aabb.bx} ${aabb.by} ${aabb.bz}\n" +
+                                        "min:${aabb.sx} ${aabb.sy} ${aabb.sz}\n " +
+                                        "dims:x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}"
+                            )
                         }
                     }
                 }
@@ -318,7 +325,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         mGPUPointCloudList[i].pointNum,
                         modelMat,
                         camera,
-                        0.3f,
+                        mPointConfidence.toFloat(),
                         5.0f
                     )
                 }
