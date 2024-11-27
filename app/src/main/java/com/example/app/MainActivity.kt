@@ -80,6 +80,8 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private var mClusterAABBs: Array<ClusterResults>? = null
     private var mClusterGPUAABBs: AABBGPUList? = null
 
+    private var mAABBMinPoints = 20
+
     private lateinit var nativeCode: NativeCode
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -354,18 +356,40 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         5.0f
                     )
                 }
-                mClusterGPUAABBs?.let{
-                    val modelMat = FloatArray(16)
-                    Matrix.setIdentityM(modelMat,0)
-                    for (i in 0..<it.aabbNum){
-                        mLineRenderer.draw(
-                            it.gpuBuffer,
-                            AABB.LINE_BUFFER_VERT_NUM,
-                            AABB.LINE_BUFFER_VERT_NUM*i,
-                            floatArrayOf(0.0f,1.0f,0.0f,1.0f),
-                            modelMat,
-                            camera
-                        )
+                mClusterGPUAABBs?.let{ gpuAABBs ->
+                    mClusterAABBs?.let { aabbs ->
+                        val modelMat = FloatArray(16)
+                        Matrix.setIdentityM(modelMat,0)
+
+                        val viewMat = FloatArray(16)
+                        camera.getViewMatrix(viewMat,0)
+                        val invViewMat = FloatArray(16)
+                        Matrix.invertM(invViewMat,0,viewMat,0)
+
+                        val viewRayDir = floatArrayOf(0.0f,0.0f,-1.0f,0.0f)
+                        val worldRayDir = FloatArray(4)
+                        Matrix.multiplyMV(worldRayDir,0,invViewMat,0,viewRayDir,0)
+
+                        val viewOrigin = floatArrayOf(0.0f,0.0f,0.0f,1.0f)
+                        val worldOrigin = FloatArray(4)
+                        Matrix.multiplyMV(worldOrigin,0,invViewMat,0,viewOrigin,0)
+
+                        for (i in 0..<gpuAABBs.aabbNum){
+                            if(aabbs[i].pointCount<mAABBMinPoints) continue
+                            val color = if(aabbs[i].aabb.intersect(Ray(worldOrigin,worldRayDir))){
+                                floatArrayOf(1.0f,0.0f,0.0f,1.0f)
+                            } else {
+                                floatArrayOf(0.0f,1.0f,0.0f,1.0f)
+                            }
+                            mLineRenderer.draw(
+                                gpuAABBs.gpuBuffer,
+                                AABB.LINE_BUFFER_VERT_NUM,
+                                AABB.LINE_BUFFER_VERT_NUM*i,
+                                color,
+                                modelMat,
+                                camera
+                            )
+                        }
                     }
                 }
             }
