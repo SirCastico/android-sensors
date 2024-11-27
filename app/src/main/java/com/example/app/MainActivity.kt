@@ -7,6 +7,7 @@ import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,10 +20,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,6 +36,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.app.ui.theme.AppTheme
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
@@ -59,7 +64,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private lateinit var mPCRenderer: PointCloudRendererEx
     private lateinit var mLineRenderer: LineRenderer
     private val pointMax = 15000
-    private val mPointConfidence = 0.98f
+    var mPointConfidence = 0.98f
     private val mClusterEps = 0.007f
     private val mClusterNPts = 3
 
@@ -74,10 +79,14 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private var mClusterAABBs: Array<AABB>? = null
     private var mClusterGPUAABBs: AABBGPUList? = null
 
-    private val nativeCode: NativeCode = NativeCode()
+    private lateinit var nativeCode: NativeCode
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        nativeCode = NativeCode() // so the preview works
+
+        val windowInsetsContr = WindowCompat.getInsetsController(this.window, this.window.decorView)
+        windowInsetsContr.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
         mInfo = if (ArCoreApk.getInstance().checkAvailability(this).isSupported){
             "arcore supported"
@@ -375,7 +384,7 @@ fun AppContent(main: MainActivity) {
                 )
             }
 
-            Row(modifier = Modifier.offset(0.dp, (-64).dp)) {
+            Row() {
                 var uiMode by remember {mutableStateOf(main.mState)}
                 val modeChanger = {
                     if(uiMode == MainState.CAPTURER){
@@ -411,6 +420,22 @@ fun AppContent(main: MainActivity) {
                         )
                     }
                 }
+            }
+            Row(){
+                var sliderPosition by remember { mutableFloatStateOf(main.mPointConfidence) }
+                Slider(
+                    value = sliderPosition,
+                    modifier = Modifier.fillMaxWidth().weight(1.0f),
+                    onValueChange = {
+                        sliderPosition = it
+                        main.mPointConfidence = it
+                    }
+                )
+                Text(
+                    text = "${main.mPointConfidence}",
+                    color = Color.Black,
+                    modifier = Modifier.fillMaxWidth().weight(0.3f)
+                )
             }
         }
     }
