@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.app.ui.theme.AppTheme
 import com.google.ar.core.ArCoreApk
@@ -87,6 +88,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
         val windowInsetsContr = WindowCompat.getInsetsController(this.window, this.window.decorView)
         windowInsetsContr.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsContr.hide(WindowInsetsCompat.Type.systemBars())
 
         mInfo = if (ArCoreApk.getInstance().checkAvailability(this).isSupported){
             "arcore supported"
