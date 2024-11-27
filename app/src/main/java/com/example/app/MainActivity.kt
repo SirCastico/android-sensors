@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
 
     private val mPointCloudList: MutableList<PointCloudData> = mutableListOf()
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
-    private var mClusterAABBs: Array<AABB>? = null
+    private var mClusterAABBs: Array<ClusterResults>? = null
     private var mClusterGPUAABBs: AABBGPUList? = null
 
     private lateinit var nativeCode: NativeCode
@@ -305,11 +305,17 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                     Log.d(TAG, "finished clustering")
                     mClusterAABBs?.let{
                         if (mClusterGPUAABBs == null){
-                            mClusterGPUAABBs = AABBGPUList(it.asList())
-                        } else mClusterGPUAABBs?.update(it.asList())
+                            mClusterGPUAABBs = AABBGPUList(List(it.size){ind->it[ind].aabb})
+                        } else mClusterGPUAABBs?.update(List(it.size){ind->it[ind].aabb})
 
+                        var currHighest=0
+                        var currInd=0
                         for(aabbInd in it.indices){
-                            val aabb = it[aabbInd]
+                            val aabb = it[aabbInd].aabb
+                            if (it[aabbInd].pointCount>currHighest){
+                                currHighest = it[aabbInd].pointCount
+                                currInd = aabbInd
+                            }
                             Log.d(
                                 "ClusterAABB",
                                 "$aabbInd :: max:${aabb.bx} ${aabb.by} ${aabb.bz}\n" +
@@ -317,6 +323,13 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                                         "dims:x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}"
                             )
                         }
+                        val aabb = it[currInd].aabb
+                        Log.d(
+                            "ClusterAABB",
+                            "highest point count :: max:${aabb.bx} ${aabb.by} ${aabb.bz}\n" +
+                                    "min:${aabb.sx} ${aabb.sy} ${aabb.sz}\n " +
+                                    "dims:x:${aabb.bx-aabb.sx},y:${aabb.by-aabb.sy},z:${aabb.bz-aabb.sz}"
+                        )
                     }
                 }
                 if(mSerialize){

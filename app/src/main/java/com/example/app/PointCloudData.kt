@@ -17,6 +17,8 @@ import java.io.Closeable
 import java.io.FileOutputStream
 import java.nio.FloatBuffer
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 
 class PointCloudData(
@@ -115,6 +117,8 @@ class GPUPointCloud(pointBuffer: FloatBuffer) : Closeable{
     }
 }
 
+class Ray(val origin: FloatArray, val direction: FloatArray)
+
 class AABB{
     companion object STATIC {
         const val LINE_BUFFER_VERT_NUM = 24
@@ -181,6 +185,28 @@ class AABB{
             bx,sy,sz,1.0f,
             bx,sy,bz,1.0f,
         ))
+    }
+
+    fun intersect(ray: Ray) : Boolean {
+        val tx1 = (sx - ray.origin[0]) / ray.direction[0]
+        val tx2 = (bx - ray.origin[0]) / ray.direction[0]
+
+        var tmin = min(tx1,tx2)
+        var tmax = max(tx1,tx2)
+
+        var ty1 = (sy - ray.origin[1]) / ray.direction[1]
+        var ty2 = (by - ray.origin[1]) / ray.direction[1]
+
+        tmin = max(tmin,min(ty1,ty2))
+        tmax = min(tmax,max(ty1,ty2))
+
+        val tz1 = (sz - ray.origin[2]) * ray.direction[2]
+        val tz2 = (bz - ray.origin[2]) * ray.direction[2]
+
+        tmin = max(tmin,min(tz1,tz2))
+        tmax = min(tmax,max(tz1,tz2))
+
+        return tmax >= tmin;
     }
 }
 

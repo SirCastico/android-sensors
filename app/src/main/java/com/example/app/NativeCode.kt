@@ -3,6 +3,7 @@ package com.example.app
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
 
+class ClusterResults(val aabb: AABB, val pointCount: Int)
 
 class NativeCode{
     companion object {
@@ -12,5 +13,5 @@ class NativeCode{
     }
 
     // buffer of 3d points, return cluster aabbs
-    external fun cluster(pointBuffer: FloatBuffer, count: Int, eps: Float, nPts: Int): Array<AABB>?
+    external fun cluster(pointBuffer: FloatBuffer, count: Int, eps: Float, nPts: Int): Array<ClusterResults>?
 }

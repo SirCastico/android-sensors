@@ -70,6 +70,22 @@ struct J_AABB{
     }
 };
 
+struct J_ClusterResults{
+    jclass m_class_id;
+    jobject m_object_id;
+    explicit J_ClusterResults(JNIEnv *env, const J_AABB &aabb, int pointCount){
+        m_class_id = env->FindClass("com/example/app/ClusterResults");
+        m_object_id = env->NewObject(
+                m_class_id,
+                env->GetMethodID(
+                    m_class_id,
+                    "<init>",
+                    "(Lcom/example/app/AABB;I)V"
+                ),
+                aabb.m_aabb,
+                pointCount);
+    }
+};
 
 extern "C"
 JNIEXPORT jobjectArray JNICALL
@@ -82,7 +98,7 @@ Java_com_example_app_NativeCode_cluster(JNIEnv *env, jobject thiz, jobject point
 
     jobjectArray aabb_arr = env->NewObjectArray(
             (jsize)clusters.size(),
-            env->FindClass("com/example/app/AABB"),
+            env->FindClass("com/example/app/ClusterResults"),
             nullptr);
 
     for(int cluster_i=0;cluster_i<clusters.size();++cluster_i){
@@ -93,7 +109,8 @@ Java_com_example_app_NativeCode_cluster(JNIEnv *env, jobject thiz, jobject point
         }
         J_AABB j_aabb{env};
         j_aabb.set_aabb(env,aabb);
-        env->SetObjectArrayElement(aabb_arr, cluster_i, j_aabb.m_aabb);
+        J_ClusterResults res{env, j_aabb, (int)cluster.size()};
+        env->SetObjectArrayElement(aabb_arr, cluster_i, res.m_object_id);
     }
 
     return aabb_arr;
