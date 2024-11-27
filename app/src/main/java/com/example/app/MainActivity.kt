@@ -502,6 +502,17 @@ fun AppContent(main: MainActivity) {
                     modifier = Modifier.fillMaxWidth().weight(0.3f)
                 )
             }
+            Row{
+                var measurements by remember { mutableStateOf(main.getSelectedMeasurements()) }
+                var text = "nothing"
+                measurements?.let { realMeasures ->
+                    text = "x:${realMeasures.x} y:${realMeasures.y} z:${realMeasures.z}, volume: ${realMeasures.volume}"
+                }
+                Text(
+                    text = text,
+                    color = Color.Black
+                )
+            }
         }
     }
 }
