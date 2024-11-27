@@ -200,8 +200,8 @@ class AABB{
         tmin = max(tmin,min(ty1,ty2))
         tmax = min(tmax,max(ty1,ty2))
 
-        val tz1 = (sz - ray.origin[2]) * ray.direction[2]
-        val tz2 = (bz - ray.origin[2]) * ray.direction[2]
+        val tz1 = (sz - ray.origin[2]) / ray.direction[2]
+        val tz2 = (bz - ray.origin[2]) / ray.direction[2]
 
         tmin = max(tmin,min(tz1,tz2))
         tmax = min(tmax,max(tz1,tz2))

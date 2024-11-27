@@ -361,10 +361,13 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         val modelMat = FloatArray(16)
                         Matrix.setIdentityM(modelMat,0)
 
-                        val viewMat = FloatArray(16)
-                        camera.getViewMatrix(viewMat,0)
+                        //val viewMat = FloatArray(16)
+                        //camera.getViewMatrix(viewMat,0)
+                        //val invViewMat = FloatArray(16)
+                        //Matrix.invertM(invViewMat,0,viewMat,0)
+
                         val invViewMat = FloatArray(16)
-                        Matrix.invertM(invViewMat,0,viewMat,0)
+                        camera.displayOrientedPose.toMatrix(invViewMat,0)
 
                         val viewRayDir = floatArrayOf(0.0f,0.0f,-1.0f,0.0f)
                         val worldRayDir = FloatArray(4)
