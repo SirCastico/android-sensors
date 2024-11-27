@@ -361,11 +361,6 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         val modelMat = FloatArray(16)
                         Matrix.setIdentityM(modelMat,0)
 
-                        //val viewMat = FloatArray(16)
-                        //camera.getViewMatrix(viewMat,0)
-                        //val invViewMat = FloatArray(16)
-                        //Matrix.invertM(invViewMat,0,viewMat,0)
-
                         val invViewMat = FloatArray(16)
                         camera.displayOrientedPose.toMatrix(invViewMat,0)
 
@@ -373,17 +368,24 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         val worldRayDir = FloatArray(4)
                         Matrix.multiplyMV(worldRayDir,0,invViewMat,0,viewRayDir,0)
 
-                        //val viewOrigin = floatArrayOf(0.0f,0.0f,0.0f,1.0f)
-                        //val worldOrigin = FloatArray(4)
-                        //Matrix.multiplyMV(worldOrigin,0,invViewMat,0,viewOrigin,0)
                         val origin = camera.pose.translation
                         val worldOrigin = floatArrayOf(origin[0],origin[1],origin[2],1.0f)
-                        Log.d("Raycast", "origin:${worldOrigin.contentToString()}\n" +
-                                "dir:${worldRayDir.contentToString()}")
+                        //Log.d("Raycast", "origin:${worldOrigin.contentToString()}\n" +
+                        //        "dir:${worldRayDir.contentToString()}")
 
+                        var selectedInd=0
+                        var leastTMin=Float.MAX_VALUE
                         for (i in 0..<gpuAABBs.aabbNum){
                             if(aabbs[i].pointCount<mAABBMinPoints) continue
-                            val color = if(aabbs[i].aabb.intersect(Ray(worldOrigin,worldRayDir))){
+                            val isect = aabbs[i].aabb.intersect(Ray(worldOrigin,worldRayDir))
+                            if(isect.intersected() && isect.tmin<leastTMin){
+                                selectedInd = i
+                                leastTMin = isect.tmin
+                            }
+                        }
+                        for (i in 0..<gpuAABBs.aabbNum){
+                            if(aabbs[i].pointCount<mAABBMinPoints) continue
+                            val color = if(i==selectedInd){
                                 floatArrayOf(1.0f,0.0f,0.0f,1.0f)
                             } else {
                                 floatArrayOf(0.0f,1.0f,0.0f,1.0f)

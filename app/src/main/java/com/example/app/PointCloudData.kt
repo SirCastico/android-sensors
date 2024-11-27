@@ -119,6 +119,12 @@ class GPUPointCloud(pointBuffer: FloatBuffer) : Closeable{
 
 class Ray(val origin: FloatArray, val direction: FloatArray)
 
+data class AABBRayIsectResult(val tmin: Float, val tmax: Float){
+    fun intersected(): Boolean{
+        return tmax>=tmin
+    }
+}
+
 class AABB{
     companion object STATIC {
         const val LINE_BUFFER_VERT_NUM = 24
@@ -187,7 +193,7 @@ class AABB{
         ))
     }
 
-    fun intersect(ray: Ray) : Boolean {
+    fun intersect(ray: Ray) : AABBRayIsectResult {
         val tx1 = (sx - ray.origin[0]) / ray.direction[0]
         val tx2 = (bx - ray.origin[0]) / ray.direction[0]
 
@@ -206,7 +212,7 @@ class AABB{
         tmin = max(tmin,min(tz1,tz2))
         tmax = min(tmax,max(tz1,tz2))
 
-        return tmax >= tmin;
+        return AABBRayIsectResult(tmin,tmax)
     }
 }
 
