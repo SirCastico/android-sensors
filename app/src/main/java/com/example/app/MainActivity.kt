@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private val mGPUPointCloudList: MutableList<GPUPointCloud> = mutableListOf()
     private var mClusterAABBs: Array<ClusterResults>? = null
     private var mClusterGPUAABBs: AABBGPUList? = null
+    private var mSelectedClusterInd: Int? = null
 
     private var mAABBMinPoints = 20
 
@@ -208,11 +209,12 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         GLES20.glViewport(0,0,width,height)
     }
 
+    @Synchronized
     override fun onDrawFrame(unused: GL10) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         mSession?.let {session ->
             Log.d(TAG, "anchor num: ${session.allAnchors.size}")
-            mDisplayRotationHelper.updateSessionIfNeeded(session)
+            //mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
             val camera = frame.getCamera()
 
@@ -258,6 +260,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         mSavePointCloud = false
                         pointCloud.isSaved = true
                         mClusterAABBs=null
+                        mSelectedClusterInd=null
                     }
                     val modelMat = FloatArray(16)
                     //Matrix.setIdentityM(modelMat, 0)
@@ -373,19 +376,18 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         //Log.d("Raycast", "origin:${worldOrigin.contentToString()}\n" +
                         //        "dir:${worldRayDir.contentToString()}")
 
-                        var selectedInd=0
                         var leastTMin=Float.MAX_VALUE
                         for (i in 0..<gpuAABBs.aabbNum){
                             if(aabbs[i].pointCount<mAABBMinPoints) continue
                             val isect = aabbs[i].aabb.intersect(Ray(worldOrigin,worldRayDir))
                             if(isect.intersected() && isect.tmin<leastTMin){
-                                selectedInd = i
+                                mSelectedClusterInd = i
                                 leastTMin = isect.tmin
                             }
                         }
                         for (i in 0..<gpuAABBs.aabbNum){
                             if(aabbs[i].pointCount<mAABBMinPoints) continue
-                            val color = if(i==selectedInd){
+                            val color = if(i==mSelectedClusterInd){
                                 floatArrayOf(1.0f,0.0f,0.0f,1.0f)
                             } else {
                                 floatArrayOf(0.0f,1.0f,0.0f,1.0f)
@@ -405,8 +407,24 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         }
 
     }
+
+    fun getSelectedMeasurements(): MainClusterMeasurements?{
+        mClusterAABBs?.let { aabbs ->
+            if(mSelectedClusterInd!=null){
+                val selInd = mSelectedClusterInd!!
+                return MainClusterMeasurements(aabbs[selInd].aabb)
+            }
+        }
+        return null
+    }
 }
 
+class MainClusterMeasurements(aabb: AABB){
+    val x = aabb.bx - aabb.sx
+    val y = aabb.by - aabb.sy
+    val z = aabb.bz - aabb.sz
+    val volume = x*y*z
+}
 
 @Composable
 fun AppContent(main: MainActivity) {
