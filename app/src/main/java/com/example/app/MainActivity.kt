@@ -370,9 +370,13 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
                         val worldRayDir = FloatArray(4)
                         Matrix.multiplyMV(worldRayDir,0,invViewMat,0,viewRayDir,0)
 
-                        val viewOrigin = floatArrayOf(0.0f,0.0f,0.0f,1.0f)
-                        val worldOrigin = FloatArray(4)
-                        Matrix.multiplyMV(worldOrigin,0,invViewMat,0,viewOrigin,0)
+                        //val viewOrigin = floatArrayOf(0.0f,0.0f,0.0f,1.0f)
+                        //val worldOrigin = FloatArray(4)
+                        //Matrix.multiplyMV(worldOrigin,0,invViewMat,0,viewOrigin,0)
+                        val origin = camera.pose.translation
+                        val worldOrigin = floatArrayOf(origin[0],origin[1],origin[2],1.0f)
+                        Log.d("Raycast", "origin:${worldOrigin.contentToString()}\n" +
+                                "dir:${worldRayDir.contentToString()}")
 
                         for (i in 0..<gpuAABBs.aabbNum){
                             if(aabbs[i].pointCount<mAABBMinPoints) continue
