@@ -46,6 +46,9 @@ import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
@@ -53,6 +56,10 @@ import javax.microedition.khronos.opengles.GL10
 import kotlin.time.measureTime
 
 data class CurrentPointCloud(var data: PointCloudData, val gpuData: GPUPointCloud, var isSaved: Boolean = false)
+
+class UIState{
+    var measures: MainClusterMeasurements? by mutableStateOf(null)
+}
 
 class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     val TAG = "MainActivity"
@@ -84,6 +91,10 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     private var mAABBMinPoints = 20
 
     private lateinit var nativeCode: NativeCode
+
+    private val mUiState = UIState()
+    private var mCurrentMeasurements: MainClusterMeasurements? = null
+    private val mCurrentMeasurementsMutex: Mutex = Mutex()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -179,7 +190,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             mSession?.resume()
             //mSurface.onResume()
             setContent {
-                AppContent(this)
+                AppContent(this, mUiState)
             }
         }
     }
@@ -406,6 +417,18 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
             }
         }
 
+        mClusterAABBs?.let{ aabbs ->
+            mSelectedClusterInd?.let{ selInd ->
+                val m = MainClusterMeasurements(aabbs[selInd].aabb)
+                runBlocking {
+                    mCurrentMeasurementsMutex.withLock {
+                        mCurrentMeasurements = m
+                    }
+                }
+                mUiState.measures = m
+            }
+        }
+
     }
 
     fun getSelectedMeasurements(): MainClusterMeasurements?{
@@ -417,6 +440,11 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         }
         return null
     }
+
+    @Composable
+    fun AppContent(){
+        com.example.app.AppContent(this, mUiState)
+    }
 }
 
 class MainClusterMeasurements(aabb: AABB){
@@ -427,7 +455,7 @@ class MainClusterMeasurements(aabb: AABB){
 }
 
 @Composable
-fun AppContent(main: MainActivity) {
+fun AppContent(main: MainActivity, uiState: UIState) {
     AppTheme {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -503,9 +531,8 @@ fun AppContent(main: MainActivity) {
                 )
             }
             Row{
-                var measurements by remember { mutableStateOf(main.getSelectedMeasurements()) }
                 var text = "nothing"
-                measurements?.let { realMeasures ->
+                uiState.measures?.let { realMeasures ->
                     text = "x:${realMeasures.x} y:${realMeasures.y} z:${realMeasures.z}, volume: ${realMeasures.volume}"
                 }
                 Text(
@@ -544,5 +571,5 @@ fun TextContent(content: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun AppPreview() {
-    AppContent(MainActivity())
+    MainActivity().AppContent()
 }
