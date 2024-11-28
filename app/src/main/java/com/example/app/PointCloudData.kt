@@ -11,8 +11,6 @@ import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
-import org.apache.commons.math3.ml.clustering.Cluster
-import org.apache.commons.math3.ml.clustering.Clusterable
 import java.io.Closeable
 import java.io.FileOutputStream
 import java.nio.FloatBuffer

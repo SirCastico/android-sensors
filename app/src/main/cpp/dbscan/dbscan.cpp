@@ -1,12 +1,13 @@
 #include "dbscan.hpp"
 
 #include <cstddef>
-#include "nanoflannold.hpp"
+#include "nanoflann.hpp"
 
 #include <type_traits>
 #include <vector>
 #include <span>
 
+// based on https://github.com/Eleobert/dbscan
 
 inline auto get_pt(const point2& p, std::size_t dim)
 {
