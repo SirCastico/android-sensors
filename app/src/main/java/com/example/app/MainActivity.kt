@@ -57,6 +57,7 @@ import kotlin.time.measureTime
 
 data class CurrentPointCloud(var data: PointCloudData, val gpuData: GPUPointCloud, var isSaved: Boolean = false)
 
+// TODO put ui state in this class and properly sync it
 class UIState{
     var measures: MainClusterMeasurements? by mutableStateOf(null)
 }
@@ -75,6 +76,7 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     var mPointConfidence = 0.98f
     private val mClusterEps = 0.007f
     private val mClusterNPts = 3
+    private val mDrawMutex = Mutex()
 
     private var mCurrentPointCloud: CurrentPointCloud? = null
 
@@ -220,11 +222,9 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
         GLES20.glViewport(0,0,width,height)
     }
 
-    @Synchronized
     override fun onDrawFrame(unused: GL10) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         mSession?.let {session ->
-            Log.d(TAG, "anchor num: ${session.allAnchors.size}")
             //mDisplayRotationHelper.updateSessionIfNeeded(session)
             val frame = session.update()
             val camera = frame.getCamera()
@@ -432,13 +432,13 @@ class MainActivity : ComponentActivity(), GLSurfaceView.Renderer{
     }
 
     fun getSelectedMeasurements(): MainClusterMeasurements?{
-        mClusterAABBs?.let { aabbs ->
-            if(mSelectedClusterInd!=null){
-                val selInd = mSelectedClusterInd!!
-                return MainClusterMeasurements(aabbs[selInd].aabb)
+        val measurements: MainClusterMeasurements?
+        runBlocking {
+            mCurrentMeasurementsMutex.withLock {
+                measurements = mCurrentMeasurements
             }
         }
-        return null
+        return measurements
     }
 
     @Composable

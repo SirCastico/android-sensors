@@ -163,6 +163,9 @@ class PointCloudRendererEx(
         GLES20.glLinkProgram(program)
         GLES20.glUseProgram(program)
 
+        GLES20.glDeleteShader(vertShader)
+        GLES20.glDeleteShader(fragShader)
+
         positionAttribute = GLES20.glGetAttribLocation(program, "a_Position")
         //colorAttribute = GLES20.glGetAttribLocation(program, "a_Color")
         modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
@@ -233,6 +236,9 @@ class LineRenderer(
         GLES20.glAttachShader(program, fragShader)
         GLES20.glLinkProgram(program)
         GLES20.glUseProgram(program)
+
+        GLES20.glDeleteShader(vertShader)
+        GLES20.glDeleteShader(fragShader)
 
         positionAttribute = GLES20.glGetAttribLocation(program, "a_Position")
         modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection")
